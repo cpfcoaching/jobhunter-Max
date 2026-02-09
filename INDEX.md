@@ -90,6 +90,13 @@ npm run dev
 - Go to Settings → Configure your AI provider
 - Start tracking your job search!
 
+### 5. Push to GitHub
+```bash
+git add -A
+git commit -m "Initial commit: JobHunter Max with secure backend"
+git push origin main
+```
+
 **👉 See [QUICKSTART.md](QUICKSTART.md) for complete instructions**
 
 ## 📚 Documentation Quick Links
