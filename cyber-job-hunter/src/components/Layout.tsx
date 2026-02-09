@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Building2, Calendar, Settings } from 'lucide-react';
+import { LayoutDashboard, Building2, Calendar, Brain, Settings } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
@@ -8,6 +8,7 @@ export const Layout: React.FC = () => {
         { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
         { to: '/companies', icon: Building2, label: 'Companies' },
         { to: '/calendar', icon: Calendar, label: 'Calendar' },
+        { to: '/ai-assistant', icon: Brain, label: 'AI Assistant' },
         { to: '/settings', icon: Settings, label: 'Settings' },
     ];
 
@@ -16,7 +17,7 @@ export const Layout: React.FC = () => {
             <aside className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
                 <div className="p-6">
                     <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                        CyberHunter
+                        JobHunter Max
                     </h1>
                 </div>
                 <nav className="flex-1 px-4 space-y-2">

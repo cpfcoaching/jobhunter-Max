@@ -47,7 +47,7 @@ export const ContactList: React.FC<ContactListProps> = ({ company }) => {
                         <div key={contact.id} className="bg-gray-900/50 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <h4 className="font-bold text-white text-lg">{contact.name}</h4>
+                                    <h4 className="font-bold text-white text-lg">{contact.firstName} {contact.lastName}</h4>
                                     <p className="text-sm text-gray-400">{contact.role}</p>
                                     <p className="text-sm text-gray-500 mt-1">{contact.email}</p>
                                 </div>

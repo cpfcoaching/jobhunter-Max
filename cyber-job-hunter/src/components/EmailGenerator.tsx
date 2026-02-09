@@ -16,7 +16,7 @@ export const EmailGenerator: React.FC<EmailGeneratorProps> = ({ contact, company
     useEffect(() => {
         // Default template from requirements
         setSubject(`Quick question - ${company.name}`);
-        setBody(`Hi ${contact.name},
+        setBody(`Hi ${contact.firstName},
 
 I hope you're doing well! I truly value your insights and would love to hear your advice. Given your experience with ${company.name}, could you share any tips or guidance? I’m interested in understanding both the specific roles and the broader picture of the company.
 
@@ -44,7 +44,7 @@ Thanks so much!`);
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">To</label>
                         <div className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-300">
-                            {contact.name} &lt;{contact.email}&gt;
+                            {contact.firstName} {contact.lastName} &lt;{contact.email}&gt;
                         </div>
                     </div>
 
