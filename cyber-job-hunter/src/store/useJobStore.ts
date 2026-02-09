@@ -308,6 +308,17 @@ export const useJobStore = create<JobStore>()(
         }),
         {
             name: 'cyber-job-hunter-storage',
+            // SECURITY: Only persist non-sensitive data
+            // API keys and sensitive information should NEVER be persisted client-side
+            // Instead, they are securely stored on the backend server
+            partialize: (state) => ({
+                companies: state.companies,
+                appointments: state.appointments,
+                resumes: state.resumes,
+                // Note: aiSettings.provider and aiSettings.model are safe to persist
+                // but NOT any API keys - those are handled by the backend
+                aiSettings: state.aiSettings,
+            }),
         }
     )
 );

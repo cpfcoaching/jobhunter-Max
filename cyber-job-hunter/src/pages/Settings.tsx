@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useJobStore } from '../store/useJobStore';
-import { Settings as SettingsIcon, Brain, Mail, Linkedin, CheckCircle, XCircle, Download } from 'lucide-react';
+import { Settings as SettingsIcon, Brain, Mail, Linkedin, CheckCircle, XCircle, Download, Lock } from 'lucide-react';
 import { fetchOllamaModels, checkIfOllamaModelIsRunning, keepOllamaModelAlive } from '../utils/ai';
+import { storeApiKey, checkApiKey, deleteApiKey } from '../utils/backend-api';
 import type { AiProvider } from '../types/ai';
 import { ModelManagement } from '../components/ModelManagement';
 
@@ -16,6 +17,14 @@ export const Settings: React.FC = () => {
         runningModelName?: string;
         error?: string;
     }>({ isRunning: false });
+
+    // API Key management
+    const [openaiApiKey, setOpenaiApiKey] = useState('');
+    const [deepseekApiKey, setDeepseekApiKey] = useState('');
+    const [openaiKeyConfigured, setOpenaiKeyConfigured] = useState(false);
+    const [deepseekKeyConfigured, setDeepseekKeyConfigured] = useState(false);
+    const [isSavingApiKey, setIsSavingApiKey] = useState(false);
+    const [apiKeyMessage, setApiKeyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     // Email integration settings
     const [emailSettings, setEmailSettings] = useState({
@@ -41,6 +50,84 @@ export const Settings: React.FC = () => {
             checkModelStatus();
         }
     }, [selectedModel, selectedProvider]);
+
+    // Check API key status on component mount
+    useEffect(() => {
+        checkApiKeyStatus();
+    }, []);
+
+    const checkApiKeyStatus = async () => {
+        try {
+            const openaiConfigured = await checkApiKey('openai');
+            const deepseekConfigured = await checkApiKey('deepseek');
+            setOpenaiKeyConfigured(openaiConfigured);
+            setDeepseekKeyConfigured(deepseekConfigured);
+        } catch (error) {
+            console.error('Failed to check API key status:', error);
+        }
+    };
+
+    const handleSaveApiKey = async (provider: 'openai' | 'deepseek') => {
+        const apiKey = provider === 'openai' ? openaiApiKey : deepseekApiKey;
+
+        if (!apiKey.trim()) {
+            setApiKeyMessage({ type: 'error', text: 'Please enter an API key' });
+            return;
+        }
+
+        setIsSavingApiKey(true);
+        try {
+            await storeApiKey(provider, apiKey);
+            setApiKeyMessage({
+                type: 'success',
+                text: `${provider === 'openai' ? 'OpenAI' : 'DeepSeek'} API key saved securely!`,
+            });
+
+            // Clear the input field and update status
+            if (provider === 'openai') {
+                setOpenaiApiKey('');
+                setOpenaiKeyConfigured(true);
+            } else {
+                setDeepseekApiKey('');
+                setDeepseekKeyConfigured(true);
+            }
+
+            // Clear message after 3 seconds
+            setTimeout(() => setApiKeyMessage(null), 3000);
+        } catch (error) {
+            setApiKeyMessage({
+                type: 'error',
+                text: `Failed to save API key: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            });
+        } finally {
+            setIsSavingApiKey(false);
+        }
+    };
+
+    const handleDeleteApiKey = async (provider: 'openai' | 'deepseek') => {
+        if (!window.confirm(`Delete ${provider} API key?`)) {
+            return;
+        }
+
+        try {
+            await deleteApiKey(provider);
+            if (provider === 'openai') {
+                setOpenaiKeyConfigured(false);
+            } else {
+                setDeepseekKeyConfigured(false);
+            }
+            setApiKeyMessage({
+                type: 'success',
+                text: `${provider === 'openai' ? 'OpenAI' : 'DeepSeek'} API key deleted`,
+            });
+            setTimeout(() => setApiKeyMessage(null), 3000);
+        } catch (error) {
+            setApiKeyMessage({
+                type: 'error',
+                text: `Failed to delete API key: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            });
+        }
+    };
 
     const loadOllamaModels = async () => {
         setIsLoadingModels(true);
@@ -192,14 +279,39 @@ export const Settings: React.FC = () => {
 
                         {selectedProvider === 'openai' && (
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">
-                                    OpenAI API Key
+                                <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
+                                    <Lock size={16} />
+                                    OpenAI API Key (Securely Stored)
                                 </label>
-                                <input
-                                    type="password"
-                                    placeholder="sk-..."
-                                    className="w-full md:w-96 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none"
-                                />
+                                <div className="flex gap-2">
+                                    <input
+                                        type="password"
+                                        placeholder="sk-..."
+                                        value={openaiApiKey}
+                                        onChange={(e) => setOpenaiApiKey(e.target.value)}
+                                        className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                                    />
+                                    <button
+                                        onClick={() => handleSaveApiKey('openai')}
+                                        disabled={isSavingApiKey || !openaiApiKey.trim()}
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                                    >
+                                        {isSavingApiKey ? 'Saving...' : 'Save'}
+                                    </button>
+                                    {openaiKeyConfigured && (
+                                        <button
+                                            onClick={() => handleDeleteApiKey('openai')}
+                                            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg font-medium transition-colors"
+                                        >
+                                            Delete
+                                        </button>
+                                    )}
+                                </div>
+                                {openaiKeyConfigured && (
+                                    <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+                                        <CheckCircle size={14} /> API key is configured
+                                    </p>
+                                )}
                                 <p className="text-xs text-gray-500 mt-2">
                                     Get your API key from{' '}
                                     <a
@@ -216,14 +328,51 @@ export const Settings: React.FC = () => {
 
                         {selectedProvider === 'deepseek' && (
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">
-                                    DeepSeek API Key
+                                <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
+                                    <Lock size={16} />
+                                    DeepSeek API Key (Securely Stored)
                                 </label>
-                                <input
-                                    type="password"
-                                    placeholder="Enter your DeepSeek API key"
-                                    className="w-full md:w-96 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none"
-                                />
+                                <div className="flex gap-2">
+                                    <input
+                                        type="password"
+                                        placeholder="Enter your DeepSeek API key"
+                                        value={deepseekApiKey}
+                                        onChange={(e) => setDeepseekApiKey(e.target.value)}
+                                        className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                                    />
+                                    <button
+                                        onClick={() => handleSaveApiKey('deepseek')}
+                                        disabled={isSavingApiKey || !deepseekApiKey.trim()}
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                                    >
+                                        {isSavingApiKey ? 'Saving...' : 'Save'}
+                                    </button>
+                                    {deepseekKeyConfigured && (
+                                        <button
+                                            onClick={() => handleDeleteApiKey('deepseek')}
+                                            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg font-medium transition-colors"
+                                        >
+                                            Delete
+                                        </button>
+                                    )}
+                                </div>
+                                {deepseekKeyConfigured && (
+                                    <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+                                        <CheckCircle size={14} /> API key is configured
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {apiKeyMessage && (
+                            <div
+                                className={`p-3 rounded-lg text-sm ${
+                                    apiKeyMessage.type === 'success'
+                                        ? 'bg-green-900 text-green-200'
+                                        : 'bg-red-900 text-red-200'
+                                }`}
+                            >
+                                {apiKeyMessage.text}
                             </div>
                         )}
 

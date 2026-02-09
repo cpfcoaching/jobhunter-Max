@@ -11,6 +11,17 @@ JobHunter Max is a modern, full-featured job search management application that 
 
 ---
 
+## 🔒 Security First
+
+This application implements **secure API key management** with a dedicated backend server. All sensitive credentials (API keys, authentication tokens) are:
+- ✅ **Never stored** in browser local storage
+- ✅ **Encrypted** in transit using HTTPS
+- ✅ **Encrypted** at rest on the backend server using AES-256-GCM
+- ✅ **Only accessible** through secure backend endpoints
+- ✅ **Never exposed** to the frontend JavaScript environment
+
+See [Security & Setup](#security--setup) section below for configuration details.
+
 ## ✨ Features
 
 ### 📊 Manual Job Search Tracking
@@ -376,7 +387,148 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ---
+## 🔒 Security & Setup
 
+### Architecture Overview
+
+JobHunter Max uses a **client-server architecture** for secure credential management:
+
+```
+Frontend (React)          Backend (Node.js/Express)     External APIs
+┌─────────────────┐      ┌──────────────────────┐      ┌──────────────┐
+│  Settings Page  │─────▶│  API Key Endpoint    │─────▶│ OpenAI API   │
+│                 │      │  (Encrypted Storage) │      │ DeepSeek API │
+│  (No Keys Here) │◀─────│  (AES-256-GCM)       │◀─────│              │
+└─────────────────┘      └──────────────────────┘      └──────────────┘
+```
+
+### Backend Setup
+
+#### 1. Install Backend Dependencies
+
+```bash
+cd server
+npm install
+```
+
+#### 2. Configure Environment Variables
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+
+# Edit .env with your actual API keys
+# IMPORTANT: Never commit .env to version control
+```
+
+**Required environment variables:**
+```env
+PORT=3001
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+SESSION_SECRET=generate-a-random-string-here
+
+# API Keys (get from their respective platforms)
+OPENAI_API_KEY=sk-...
+DEEPSEEK_API_KEY=...
+```
+
+#### 3. Start the Backend Server
+
+```bash
+# Development mode (with auto-reload)
+npm run dev
+
+# Production mode
+npm start
+```
+
+The server will run on `http://localhost:3001`
+
+### Frontend Setup
+
+#### 1. Configure Frontend Environment
+
+```bash
+# Copy the example environment file
+cp .env.example .env.local
+
+# Edit .env.local to point to your backend
+VITE_API_URL=http://localhost:3001
+```
+
+#### 2. Start the Frontend
+
+```bash
+npm run dev
+```
+
+The application will run on `http://localhost:5173`
+
+### API Key Management
+
+**When you want to use OpenAI or DeepSeek:**
+
+1. Navigate to **Settings** in the app
+2. Select your AI provider (OpenAI or DeepSeek)
+3. Paste your API key in the input field
+4. Click **Save** - the key is sent to the backend and encrypted
+5. The frontend never stores the actual API key
+
+**Key Security Features:**
+
+- 🔐 **AES-256-GCM Encryption**: Keys are encrypted using military-grade encryption
+- 🔑 **Secure Storage**: Keys stored only on backend server, never in browser
+- 🛡️ **HTTPS Required**: Always use HTTPS in production
+- 🔄 **No Key Exposure**: Frontend only checks if a key is configured, never requests the actual key
+- 🗑️ **Easy Deletion**: Delete stored keys anytime from Settings
+
+### Ollama (Local AI)
+
+For completely private AI processing without external APIs:
+
+1. Install Ollama from [ollama.com](https://ollama.com)
+2. In Settings, select **Ollama (Local)** as your AI provider
+3. Download and run your preferred model (e.g., `ollama pull llama3.2`)
+4. The app will automatically detect running models
+
+**No API key needed** - everything runs locally on your machine!
+
+### Production Deployment
+
+When deploying to production:
+
+#### Backend
+```bash
+# Use environment variables instead of .env file
+NODE_ENV=production
+PORT=3000
+SESSION_SECRET=long-random-string-generated-securely
+FRONTEND_URL=https://yourdomain.com
+
+# Use HTTPS for all connections
+# Obtain SSL certificate (e.g., Let's Encrypt)
+```
+
+#### Frontend
+```bash
+# Use HTTPS URL for backend
+VITE_API_URL=https://api.yourdomain.com
+```
+
+#### Security Checklist
+- ✅ Use HTTPS/TLS for all connections
+- ✅ Set strong `SESSION_SECRET` (minimum 32 characters)
+- ✅ Keep `NODE_ENV=production`
+- ✅ Never commit `.env` files
+- ✅ Use environment variables for all secrets
+- ✅ Enable CORS with specific origins only
+- ✅ Implement rate limiting on backend
+- ✅ Keep dependencies updated: `npm audit fix`
+- ✅ Use a process manager (PM2, systemd, Docker)
+- ✅ Enable backend monitoring and logging
+
+---
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
