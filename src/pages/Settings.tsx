@@ -45,17 +45,38 @@ export const Settings: React.FC = () => {
         profileUrl: '',
     });
 
+    // Handle provider changes, model updates, and auto-save AI settings
     useEffect(() => {
+        const defaultModels: Record<AiProvider, string> = {
+            'ollama': 'llama3.2',
+            'openai': 'gpt-4o-mini',
+            'deepseek': 'deepseek-chat',
+            'gemini': 'gemini-flash-latest',
+            'claude': 'claude-3-haiku-20240307',
+            'cohere': 'command-light'
+        };
+
+        // Set default model for the selected provider
+        setSelectedModel(defaultModels[selectedProvider]);
+
+        // Load Ollama models if provider is Ollama
         if (selectedProvider === 'ollama') {
             loadOllamaModels();
         }
-    }, [selectedProvider]);
 
-    useEffect(() => {
-        if (selectedProvider === 'ollama' && selectedModel) {
-            checkModelStatus();
+        // Auto-save AI settings
+        if (selectedProvider && selectedModel) {
+            updateAiSettings({
+                provider: selectedProvider,
+                model: selectedModel,
+            });
+
+            // Check Ollama model status if Ollama is selected
+            if (selectedProvider === 'ollama') {
+                checkModelStatus();
+            }
         }
-    }, [selectedModel, selectedProvider]);
+    }, [selectedProvider, selectedModel, updateAiSettings]);
 
     // Check API key status on component mount
     useEffect(() => {
@@ -320,6 +341,111 @@ export const Settings: React.FC = () => {
                                         ollama.com
                                     </a>{' '}
                                     to get started.
+                                </p>
+                            </div>
+                        )}
+
+                        {selectedProvider === 'openai' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-2">
+                                    Model
+                                </label>
+                                <select
+                                    value={selectedModel || 'gpt-4o-mini'}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    className="w-full md:w-64 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                                >
+                                    <option value="gpt-4o-mini">GPT-4o Mini (Recommended)</option>
+                                    <option value="gpt-4o">GPT-4o</option>
+                                    <option value="gpt-4">GPT-4</option>
+                                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                </select>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Select the OpenAI model to use for AI-powered features
+                                </p>
+                            </div>
+                        )}
+
+                        {selectedProvider === 'deepseek' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-2">
+                                    Model
+                                </label>
+                                <select
+                                    value={selectedModel || 'deepseek-chat'}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    className="w-full md:w-64 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                                >
+                                    <option value="deepseek-chat">DeepSeek Chat (Recommended)</option>
+                                    <option value="deepseek-reasoner">DeepSeek Reasoner</option>
+                                    <option value="deepseek-coder">DeepSeek Coder</option>
+                                </select>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Select the DeepSeek model to use for AI-powered features
+                                </p>
+                            </div>
+                        )}
+
+                        {selectedProvider === 'gemini' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-2">
+                                    Model
+                                </label>
+                                <select
+                                    value={selectedModel || 'gemini-flash-latest'}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    className="w-full md:w-64 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                                >
+                                    <option value="gemini-flash-latest">Gemini Flash (Latest)</option>
+                                    <option value="gemini-flash-lite-latest">Gemini Flash-Lite (Latest)</option>
+                                    <option value="gemini-pro-latest">Gemini Pro (Latest)</option>
+                                    <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
+                                    <option value="gemini-3-flash-preview">Gemini 3 Flash (Preview)</option>
+                                    <option value="gemini-3-pro-preview">Gemini 3 Pro (Preview)</option>
+                                </select>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Select the Google Gemini model to use. Try "Flash (Latest)" for best performance.
+                                </p>
+                            </div>
+                        )}
+
+                        {selectedProvider === 'claude' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-2">
+                                    Model
+                                </label>
+                                <select
+                                    value={selectedModel || 'claude-3-haiku-20240307'}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    className="w-full md:w-64 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                                >
+                                    <option value="claude-3-haiku-20240307">Claude 3 Haiku (Recommended)</option>
+                                    <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                                    <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                                </select>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Select the Anthropic Claude model to use for AI-powered features
+                                </p>
+                            </div>
+                        )}
+
+                        {selectedProvider === 'cohere' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-2">
+                                    Model
+                                </label>
+                                <select
+                                    value={selectedModel || 'command-light'}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    className="w-full md:w-64 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                                >
+                                    <option value="command-light">Command Light (Recommended)</option>
+                                    <option value="command">Command</option>
+                                    <option value="command-r">Command R</option>
+                                    <option value="command-r-plus">Command R+</option>
+                                </select>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Select the Cohere model to use for AI-powered features
                                 </p>
                             </div>
                         )}

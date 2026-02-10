@@ -7,8 +7,11 @@
     "dev": "node --watch index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "mammoth": "^1.11.0",
+    "multer": "^2.0.2",
+    "pdfreader": "^3.0.8"
   }
 }

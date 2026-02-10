@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useJobStore } from '../store/useJobStore';
-import { Brain, FileText, Target, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Brain, FileText, Target, Plus, Trash2, Loader2, Upload } from 'lucide-react';
 import { generateResumeReview, generateJobMatch } from '../utils/ai';
 import type { ResumeReviewResponse, JobMatchResponse } from '../types/ai';
+import { uploadResumeFile, isValidFileType, isValidFileSize, removeFileExtension } from '../utils/fileUpload';
 
 export const AIAssistant: React.FC = () => {
     const { resumes, aiSettings, addResume, deleteResume } = useJobStore();
@@ -32,8 +33,9 @@ export const AIAssistant: React.FC = () => {
         try {
             const review = await generateResumeReview(resume.content, aiSettings);
             setResumeReview(review);
-        } catch (err) {
-            setError('Failed to generate resume review. Make sure Ollama is running.');
+        } catch (err: any) {
+            console.error('Resume review error:', err);
+            setError(err.message || 'Failed to generate resume review. Please check your AI provider settings.');
         } finally {
             setIsAnalyzing(false);
         }
@@ -52,8 +54,9 @@ export const AIAssistant: React.FC = () => {
         try {
             const match = await generateJobMatch(resume.content, jobDescription, aiSettings);
             setJobMatch(match);
-        } catch (err) {
-            setError('Failed to generate job match. Make sure Ollama is running.');
+        } catch (err: any) {
+            console.error('Job match error:', err);
+            setError(err.message || 'Failed to generate job match. Please check your AI provider settings.');
         } finally {
             setIsAnalyzing(false);
         }
@@ -190,23 +193,27 @@ export const AIAssistant: React.FC = () => {
                             <h4 className="text-lg font-semibold text-purple-300 mb-3">Resume Review</h4>
                             <div className="space-y-3">
                                 <div className="flex items-center gap-4">
-                                    <span className="text-4xl font-bold text-purple-400">{resumeReview.overallScore}</span>
+                                    <span className="text-4xl font-bold text-purple-400">{resumeReview.overallScore || 0}</span>
                                     <span className="text-gray-400">/ 100</span>
                                 </div>
-                                <p className="text-gray-300">{resumeReview.summary}</p>
+                                <p className="text-gray-300">{resumeReview.summary || "No summary available."}</p>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <div>
                                         <h5 className="font-semibold text-green-400 mb-2">Strengths</h5>
-                                        <ul className="list-disc list-inside text-gray-300 space-y-1">
-                                            {resumeReview.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                                        </ul>
+                                        {resumeReview.strengths?.length > 0 ? (
+                                            <ul className="list-disc list-inside text-gray-300 space-y-1">
+                                                {resumeReview.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                                            </ul>
+                                        ) : <p className="text-gray-500 italic">No specific strengths identified.</p>}
                                     </div>
                                     <div>
                                         <h5 className="font-semibold text-yellow-400 mb-2">Areas to Improve</h5>
-                                        <ul className="list-disc list-inside text-gray-300 space-y-1">
-                                            {resumeReview.weaknesses.map((w, i) => <li key={i}>{w}</li>)}
-                                        </ul>
+                                        {resumeReview.weaknesses?.length > 0 ? (
+                                            <ul className="list-disc list-inside text-gray-300 space-y-1">
+                                                {resumeReview.weaknesses.map((w, i) => <li key={i}>{w}</li>)}
+                                            </ul>
+                                        ) : <p className="text-gray-500 italic">No specific areas to improve identified.</p>}
                                     </div>
                                 </div>
                             </div>
@@ -218,16 +225,18 @@ export const AIAssistant: React.FC = () => {
                             <h4 className="text-lg font-semibold text-green-300 mb-3">Job Match Analysis</h4>
                             <div className="space-y-3">
                                 <div className="flex items-center gap-4">
-                                    <span className="text-4xl font-bold text-green-400">{jobMatch.overallMatch}%</span>
+                                    <span className="text-4xl font-bold text-green-400">{jobMatch.overallMatch || 0}%</span>
                                     <span className="text-gray-400">Match Score</span>
                                 </div>
-                                <p className="text-gray-300">{jobMatch.summary}</p>
+                                <p className="text-gray-300">{jobMatch.summary || "No summary provided."}</p>
 
                                 <div className="mt-4">
                                     <h5 className="font-semibold text-blue-400 mb-2">Tailoring Tips</h5>
-                                    <ul className="list-disc list-inside text-gray-300 space-y-1">
-                                        {jobMatch.tailoringTips.map((tip, i) => <li key={i}>{tip}</li>)}
-                                    </ul>
+                                    {jobMatch.tailoringTips?.length > 0 ? (
+                                        <ul className="list-disc list-inside text-gray-300 space-y-1">
+                                            {jobMatch.tailoringTips.map((tip, i) => <li key={i}>{tip}</li>)}
+                                        </ul>
+                                    ) : <p className="text-gray-500 italic">No specific tailoring tips provided.</p>}
                                 </div>
                             </div>
                         </div>
@@ -236,23 +245,64 @@ export const AIAssistant: React.FC = () => {
             )}
 
             {/* Add Resume Modal */}
-            {showAddResume && (
-                <AddResumeModal
-                    onClose={() => setShowAddResume(false)}
-                    onAdd={handleAddResume}
-                />
-            )}
-        </div>
+            {
+                showAddResume && (
+                    <AddResumeModal
+                        onClose={() => setShowAddResume(false)}
+                        onAdd={handleAddResume}
+                    />
+                )
+            }
+        </div >
     );
 };
 
-// Simple Add Resume Modal Component
+// Enhanced Add Resume Modal Component with File Upload
 const AddResumeModal: React.FC<{
     onClose: () => void;
     onAdd: (name: string, content: string) => void;
 }> = ({ onClose, onAdd }) => {
     const [name, setName] = useState('');
     const [content, setContent] = useState('');
+    const [inputMethod, setInputMethod] = useState<'paste' | 'upload'>('paste');
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!isValidFileType(file)) {
+            setUploadError('Invalid file type. Please upload PDF, TXT, DOC, or DOCX files.');
+            return;
+        }
+
+        // Validate file size (5MB)
+        if (!isValidFileSize(file)) {
+            setUploadError('File size exceeds 5MB limit.');
+            return;
+        }
+
+        setIsUploading(true);
+        setUploadError('');
+
+        try {
+            const text = await uploadResumeFile(file);
+            setContent(text);
+
+            // Auto-fill name if not set
+            if (!name) {
+                setName(removeFileExtension(file.name));
+            }
+        } catch (error) {
+            console.error('File upload error:', error);
+            setUploadError(error instanceof Error ? error.message : 'Failed to upload file');
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -284,16 +334,82 @@ const AddResumeModal: React.FC<{
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Resume Content *</label>
-                        <textarea
-                            required
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none h-64 resize-none font-mono text-sm"
-                            placeholder="Paste your resume content here..."
-                        />
+                    {/* Input Method Tabs */}
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setInputMethod('paste')}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${inputMethod === 'paste'
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                }`}>
+                            Paste Text
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setInputMethod('upload')}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${inputMethod === 'upload'
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                }`}>
+                            Upload File
+                        </button>
                     </div>
+
+                    {inputMethod === 'paste' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Resume Content *</label>
+                            <textarea
+                                required
+                                value={content}
+                                onChange={(e) => setContent(e.target.value)}
+                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none h-64 resize-none font-mono text-sm"
+                                placeholder="Paste your resume content here..."
+                            />
+                        </div>
+                    )}
+
+                    {inputMethod === 'upload' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Upload Resume File *</label>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".pdf,.txt,.doc,.docx"
+                                onChange={handleFileUpload}
+                                className="hidden"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 border-2 border-dashed border-gray-700 hover:border-purple-500 rounded-lg text-gray-400 hover:text-white transition-colors disabled:opacity-50">
+                                {isUploading ? (
+                                    <>
+                                        <Loader2 size={20} className="animate-spin" />
+                                        Uploading...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload size={20} />
+                                        Click to upload PDF, TXT, DOC, or DOCX
+                                    </>
+                                )}
+                            </button>
+                            <p className="text-xs text-gray-500 mt-1">Max file size: 5MB</p>
+
+                            {uploadError && (
+                                <p className="text-sm text-red-400 mt-2">{uploadError}</p>
+                            )}
+
+                            {content && !uploadError && (
+                                <div className="mt-3 p-3 bg-green-900/20 border border-green-500/30 rounded-lg">
+                                    <p className="text-sm text-green-400">✓ File uploaded successfully</p>
+                                    <p className="text-xs text-gray-400 mt-1">{content.length} characters extracted</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="pt-4 flex justify-end gap-3">
                         <button

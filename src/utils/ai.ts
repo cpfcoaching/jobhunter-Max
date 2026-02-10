@@ -71,113 +71,66 @@ export async function keepOllamaModelAlive(modelName: string): Promise<void> {
     }
 }
 
-// Generate AI resume review
+// Generate AI resume review - Updated to use backend API
 export async function generateResumeReview(
     resumeContent: string,
     aiModel: AiModel
 ): Promise<any> {
     try {
-        if (aiModel.provider === 'ollama') {
-            const response = await fetch('http://localhost:11434/api/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: aiModel.model,
-                    prompt: `You are an expert resume reviewer. Analyze the following resume and provide a detailed review in JSON format with the following structure:
-{
-  "overallScore": <number 0-100>,
-  "summary": "<brief summary>",
-  "strengths": ["<strength 1>", "<strength 2>"],
-  "weaknesses": ["<weakness 1>", "<weakness 2>"],
-  "suggestions": ["<suggestion 1>", "<suggestion 2>"],
-  "formatting": {
-    "score": <number 0-100>,
-    "comments": ["<comment 1>"]
-  },
-  "content": {
-    "score": <number 0-100>,
-    "comments": ["<comment 1>"]
-  },
-  "keywords": {
-    "score": <number 0-100>,
-    "missing": ["<keyword 1>"],
-    "present": ["<keyword 1>"]
-  }
-}
+        // Use backend API which supports all providers
+        const response = await fetch('http://localhost:3001/api/ai/resume-review', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                resumeContent,
+                provider: aiModel.provider,
+                model: aiModel.model,
+            }),
+        });
 
-Resume:
-${resumeContent}`,
-                    stream: false,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to generate resume review');
-            }
-
-            const data = await response.json();
-            return JSON.parse(data.response);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate resume review');
         }
 
-        throw new Error('Unsupported AI provider');
+        const data = await response.json();
+        return data.review;
     } catch (error) {
         console.error('Error generating resume review:', error);
         throw error;
     }
 }
 
-// Generate AI job match
+// Generate AI job match - Updated to use backend API
 export async function generateJobMatch(
     resumeContent: string,
     jobDescription: string,
     aiModel: AiModel
 ): Promise<any> {
     try {
-        if (aiModel.provider === 'ollama') {
-            const response = await fetch('http://localhost:11434/api/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: aiModel.model,
-                    prompt: `You are an expert career advisor. Compare the following resume with the job description and provide a match analysis in JSON format:
-{
-  "overallMatch": <number 0-100>,
-  "summary": "<brief summary>",
-  "skillsMatch": {
-    "score": <number 0-100>,
-    "matched": ["<skill 1>"],
-    "missing": ["<skill 1>"]
-  },
-  "experienceMatch": {
-    "score": <number 0-100>,
-    "analysis": "<analysis>"
-  },
-  "recommendations": ["<recommendation 1>"],
-  "tailoringTips": ["<tip 1>"]
-}
+        // Use backend API which supports all providers
+        const response = await fetch('http://localhost:3001/api/ai/job-match', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                resumeContent,
+                jobDescription,
+                provider: aiModel.provider,
+                model: aiModel.model,
+            }),
+        });
 
-Resume:
-${resumeContent}
-
-Job Description:
-${jobDescription}`,
-                    stream: false,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to generate job match');
-            }
-
-            const data = await response.json();
-            return JSON.parse(data.response);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate job match');
         }
 
-        throw new Error('Unsupported AI provider');
+        const data = await response.json();
+        return data.match;
     } catch (error) {
         console.error('Error generating job match:', error);
         throw error;
