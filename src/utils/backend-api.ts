@@ -4,7 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 /**
  * Store API key securely on the backend
  */
-export async function storeApiKey(provider: 'openai' | 'deepseek', apiKey: string): Promise<void> {
+export async function storeApiKey(provider: 'openai' | 'deepseek' | 'gemini' | 'claude' | 'cohere', apiKey: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/api/keys/set`, {
         method: 'POST',
         headers: {
@@ -22,7 +22,7 @@ export async function storeApiKey(provider: 'openai' | 'deepseek', apiKey: strin
 /**
  * Check if an API key is configured (doesn't return the key)
  */
-export async function checkApiKey(provider: 'openai' | 'deepseek'): Promise<boolean> {
+export async function checkApiKey(provider: 'openai' | 'deepseek' | 'gemini' | 'claude' | 'cohere'): Promise<boolean> {
     const response = await fetch(`${API_BASE_URL}/api/keys/check/${provider}`);
     if (!response.ok) {
         return false;
@@ -34,7 +34,7 @@ export async function checkApiKey(provider: 'openai' | 'deepseek'): Promise<bool
 /**
  * Delete an API key from the backend
  */
-export async function deleteApiKey(provider: 'openai' | 'deepseek'): Promise<void> {
+export async function deleteApiKey(provider: 'openai' | 'deepseek' | 'gemini' | 'claude' | 'cohere'): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/api/keys/delete/${provider}`, {
         method: 'POST',
     });
@@ -49,7 +49,7 @@ export async function deleteApiKey(provider: 'openai' | 'deepseek'): Promise<voi
  * Send a message to be processed by the backend using the stored API key
  */
 export async function generateAiResponse(
-    provider: 'openai' | 'deepseek',
+    provider: 'openai' | 'deepseek' | 'gemini' | 'claude' | 'cohere',
     message: string,
     model?: string
 ): Promise<string> {

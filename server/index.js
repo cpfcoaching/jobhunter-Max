@@ -37,7 +37,7 @@ app.post('/api/keys/set', (req, res) => {
             return res.status(400).json({ error: 'Provider and apiKey are required' });
         }
 
-        if (!['openai', 'deepseek'].includes(provider)) {
+        if (!['openai', 'deepseek', 'gemini', 'claude', 'cohere'].includes(provider)) {
             return res.status(400).json({ error: 'Invalid provider' });
         }
 
@@ -65,7 +65,7 @@ app.get('/api/keys/check/:provider', (req, res) => {
     try {
         const { provider } = req.params;
 
-        if (!['openai', 'deepseek'].includes(provider)) {
+        if (!['openai', 'deepseek', 'gemini', 'claude', 'cohere'].includes(provider)) {
             return res.status(400).json({ error: 'Invalid provider' });
         }
 
@@ -85,7 +85,7 @@ app.post('/api/keys/delete/:provider', (req, res) => {
     try {
         const { provider } = req.params;
 
-        if (!['openai', 'deepseek'].includes(provider)) {
+        if (!['openai', 'deepseek', 'gemini', 'claude', 'cohere'].includes(provider)) {
             return res.status(400).json({ error: 'Invalid provider' });
         }
 
@@ -120,6 +120,12 @@ app.post('/api/ai/generate', async (req, res) => {
                 apiKey = process.env.OPENAI_API_KEY;
             } else if (provider === 'deepseek') {
                 apiKey = process.env.DEEPSEEK_API_KEY;
+            } else if (provider === 'gemini') {
+                apiKey = process.env.GEMINI_API_KEY;
+            } else if (provider === 'claude') {
+                apiKey = process.env.CLAUDE_API_KEY;
+            } else if (provider === 'cohere') {
+                apiKey = process.env.COHERE_API_KEY;
             }
         }
 
@@ -128,11 +134,17 @@ app.post('/api/ai/generate', async (req, res) => {
         }
 
         let response;
-        
+
         if (provider === 'openai') {
             response = await callOpenAI(apiKey, message, model);
         } else if (provider === 'deepseek') {
             response = await callDeepSeek(apiKey, message, model);
+        } else if (provider === 'gemini') {
+            response = await callGemini(apiKey, message, model);
+        } else if (provider === 'claude') {
+            response = await callClaude(apiKey, message, model);
+        } else if (provider === 'cohere') {
+            response = await callCohere(apiKey, message, model);
         } else {
             return res.status(400).json({ error: 'Invalid provider' });
         }
@@ -203,6 +215,105 @@ async function callDeepSeek(apiKey, message, model = 'deepseek-chat') {
         model,
         response: data.choices[0]?.message?.content || '',
         usage: data.usage,
+    };
+}
+
+/**
+ * Call Google Gemini API
+ */
+async function callGemini(apiKey, message, model = 'gemini-1.5-flash') {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            contents: [{
+                parts: [{ text: message }]
+            }],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 2048,
+            },
+        }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Gemini API error: ${error.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    return {
+        provider: 'gemini',
+        model,
+        response: data.candidates[0]?.content?.parts[0]?.text || '',
+        usage: data.usageMetadata,
+    };
+}
+
+/**
+ * Call Anthropic Claude API
+ */
+async function callClaude(apiKey, message, model = 'claude-3-haiku-20240307') {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model,
+            max_tokens: 2048,
+            messages: [{ role: 'user', content: message }],
+            temperature: 0.7,
+        }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Claude API error: ${error.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    return {
+        provider: 'claude',
+        model,
+        response: data.content[0]?.text || '',
+        usage: data.usage,
+    };
+}
+
+/**
+ * Call Cohere API
+ */
+async function callCohere(apiKey, message, model = 'command-light') {
+    const response = await fetch('https://api.cohere.ai/v1/generate', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model,
+            prompt: message,
+            max_tokens: 2048,
+            temperature: 0.7,
+        }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Cohere API error: ${error.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    return {
+        provider: 'cohere',
+        model,
+        response: data.generations[0]?.text || '',
+        usage: { tokens: data.meta?.billed_units?.output_tokens },
     };
 }
 

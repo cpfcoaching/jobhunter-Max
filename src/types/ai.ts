@@ -1,11 +1,17 @@
 // AI Provider types
-export type AiProvider = 'ollama' | 'openai' | 'deepseek';
+export type AiProvider = 'ollama' | 'openai' | 'deepseek' | 'gemini' | 'claude' | 'cohere';
 
 export type OllamaModel = 'llama3.1' | 'llama3.2' | 'tinyllama' | 'phi' | 'mistral';
 
 export type OpenaiModel = 'gpt-3.5-turbo' | 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4';
 
 export type DeepseekModel = 'deepseek-chat' | 'deepseek-reasoner' | 'deepseek-coder';
+
+export type GeminiModel = 'gemini-pro' | 'gemini-1.5-pro' | 'gemini-1.5-flash';
+
+export type ClaudeModel = 'claude-3-opus-20240229' | 'claude-3-sonnet-20240229' | 'claude-3-haiku-20240307';
+
+export type CohereModel = 'command' | 'command-light' | 'command-r' | 'command-r-plus';
 
 export interface AiModel {
     provider: AiProvider;
@@ -22,7 +28,7 @@ export interface ModelInfo {
     name: string;
     displayName: string;
     size: string;
-    provider: 'ollama' | 'openai' | 'deepseek';
+    provider: 'ollama' | 'openai' | 'deepseek' | 'gemini' | 'claude' | 'cohere';
     isDownloaded: boolean;
     isDownloading: boolean;
     downloadProgress?: number;
