@@ -10,7 +10,8 @@ Implemented a complete secure backend solution to eliminate client-side API key 
 ## Files Created
 
 ### Backend Server
-1. **`server/package.json`** - Backend dependencies (Express, CORS, dotenv, crypto)
+1. **`server/package.json`** - Backend dependencies (Express, CORS, dotenv)
+   - Note: `crypto` is a built-in Node.js module and doesn't need to be installed
 2. **`server/index.js`** - Express server with secure API endpoints
 3. **`server/crypto.js`** - AES-256-GCM encryption/decryption utilities
 4. **`server/.env.example`** - Environment variable template
@@ -277,6 +278,7 @@ If you were using an older version without the backend:
 ✅ **Comprehensive security documentation**  
 ✅ **Complete setup and deployment guides**  
 ✅ **Production-ready security checklist**  
+✅ **Removed unnecessary crypto dependency** (uses Node.js built-in module)
 
 Your job search data is now secure! 🔐
 

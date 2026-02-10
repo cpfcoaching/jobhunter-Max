@@ -35,7 +35,8 @@ A complete **secure backend solution** has been implemented to eliminate all cli
 ### Files Created (9 new files)
 
 #### Backend Server
-1. **`server/package.json`** - Express, CORS, crypto dependencies
+1. **`server/package.json`** - Express, CORS, dotenv dependencies
+   - Note: `crypto` is a built-in Node.js module and doesn't need to be installed
 2. **`server/index.js`** - Main Express server with 5 secure API endpoints
 3. **`server/crypto.js`** - AES-256-GCM encryption/decryption utilities
 4. **`server/.env.example`** - Environment variable template
