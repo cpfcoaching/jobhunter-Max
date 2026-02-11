@@ -584,10 +584,8 @@ Found a bug or have a feature request? Please open an issue on GitHub with:
 
 Need help? Have questions?
 
-- 📧 Email: support@jobhuntermax.com
-- 💬 Discord: [Join our community](#)
-- 🐦 Twitter: [@jobhuntermax](#)
-- 📚 Documentation: [docs.jobhuntermax.com](#)
+- 📧 Email: info@cpfcoaching.com
+
 
 ---
 
