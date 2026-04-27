@@ -5,6 +5,7 @@ import type { Resume, AiModel } from '../types/ai';
 import { defaultModel } from '../types/ai';
 import type { JobSearchFilters } from '../types/jobSearch';
 import { defaultJobSearchFilters } from '../types/jobSearch';
+import type { SkillProfile } from '../types/skillProfile';
 
 interface JobStore {
     companies: Company[];
@@ -13,9 +14,14 @@ interface JobStore {
     aiSettings: AiModel;
     activeResumeId: string | null;
     jobSearchFilters: JobSearchFilters;
+    skillProfiles: SkillProfile[];
 
     setActiveResumeId: (id: string | null) => void;
     setJobSearchFilters: (filters: Partial<JobSearchFilters>) => void;
+
+    addSkillProfile: (profile: Omit<SkillProfile, 'id' | 'createdAt' | 'updatedAt'>) => string;
+    updateSkillProfile: (id: string, updates: Partial<SkillProfile>) => void;
+    deleteSkillProfile: (id: string) => void;
 
     addCompany: (company: Omit<Company, 'id' | 'dateAdded' | 'contacts' | 'interviewPrep' | 'researchStatus'>) => void;
     updateCompany: (id: string, updates: Partial<Company>) => void;
@@ -55,11 +61,34 @@ export const useJobStore = create<JobStore>()(
             aiSettings: defaultModel,
             activeResumeId: null,
             jobSearchFilters: defaultJobSearchFilters,
+            skillProfiles: [],
 
             setActiveResumeId: (id) => set(() => ({ activeResumeId: id })),
 
             setJobSearchFilters: (filters) => set((state) => ({
                 jobSearchFilters: { ...state.jobSearchFilters, ...filters },
+            })),
+
+            addSkillProfile: (profileData) => {
+                const id = crypto.randomUUID();
+                const now = new Date().toISOString();
+                set((state) => ({
+                    skillProfiles: [
+                        ...state.skillProfiles,
+                        { ...profileData, id, createdAt: now, updatedAt: now },
+                    ],
+                }));
+                return id;
+            },
+
+            updateSkillProfile: (id, updates) => set((state) => ({
+                skillProfiles: state.skillProfiles.map((p) =>
+                    p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
+                ),
+            })),
+
+            deleteSkillProfile: (id) => set((state) => ({
+                skillProfiles: state.skillProfiles.filter((p) => p.id !== id),
             })),
 
             addCompany: (companyData) => set((state) => {
@@ -335,6 +364,7 @@ export const useJobStore = create<JobStore>()(
                 aiSettings: state.aiSettings,
                 activeResumeId: state.activeResumeId,
                 jobSearchFilters: state.jobSearchFilters,
+                skillProfiles: state.skillProfiles,
             }),
         }
     )
