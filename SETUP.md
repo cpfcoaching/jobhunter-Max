@@ -6,6 +6,7 @@ This guide walks you through setting up JobHunter Max with the secure backend fo
 
 - **Node.js** 18+ (download from [nodejs.org](https://nodejs.org))
 - **npm** 9+ (comes with Node.js)
+- **Python 3.8+** (for the Job Search feature powered by JobSpy)
 - **API Keys** (optional):
   - OpenAI API key from [platform.openai.com](https://platform.openai.com/api-keys)
   - DeepSeek API key from [deepseek.com](https://deepseek.com)
@@ -24,6 +25,9 @@ npm install
 
 # Install backend dependencies
 npm run server:install
+
+# Install Python dependencies for Job Search (requires Python 3.8+)
+cd server && npm run setup:python && cd ..
 ```
 
 ### Step 2: Configure Backend
@@ -369,6 +373,9 @@ npm run lint      # Check code quality
 # Backend
 npm run server    # Start server (from root with server/ dir)
 npm run server:install  # Install server dependencies
+
+# Job Search — Python (run once after cloning, then weekly via CI)
+cd server && npm run setup:python  # pip install -r requirements.txt
 
 # Or from server/ directory:
 cd server

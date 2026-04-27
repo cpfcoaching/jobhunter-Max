@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "setup:python": "pip install -r requirements.txt"
   },
   "dependencies": {
     "cors": "^2.8.5",
