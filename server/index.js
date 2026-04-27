@@ -246,7 +246,17 @@ async function callDeepSeek(apiKey, message, model = 'deepseek-chat') {
 /**
  * Call Google Gemini API
  */
+const ALLOWED_GEMINI_MODELS = new Set([
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-1.0-pro',
+]);
+
 async function callGemini(apiKey, prompt, model = 'gemini-1.5-flash') {
+    if (!ALLOWED_GEMINI_MODELS.has(model)) {
+        throw new Error('Invalid Gemini model');
+    }
+
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: {
