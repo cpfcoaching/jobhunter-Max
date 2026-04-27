@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Building2, Calendar, Brain, Settings, Search } from 'lucide-react';
+import { LayoutDashboard, Building2, Calendar, Brain, Settings, Search, Wand2 } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
@@ -9,6 +9,7 @@ export const Layout: React.FC = () => {
         { to: '/companies', icon: Building2, label: 'Companies' },
         { to: '/calendar', icon: Calendar, label: 'Calendar' },
         { to: '/job-search', icon: Search, label: 'Job Search' },
+        { to: '/create-skill', icon: Wand2, label: 'Skill Profiles' },
         { to: '/ai-assistant', icon: Brain, label: 'AI Assistant' },
         { to: '/settings', icon: Settings, label: 'Settings' },
     ];

@@ -7,6 +7,7 @@ import { Calendar } from './pages/Calendar';
 import { AIAssistant } from './pages/AIAssistant';
 import { Settings } from './pages/Settings';
 import { JobSearch } from './pages/JobSearch';
+import { CreateSkill } from './pages/CreateSkill';
 
 function App() {
   return (
@@ -18,6 +19,8 @@ function App() {
           <Route path="companies/:id" element={<CompanyDetail />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="job-search" element={<JobSearch />} />
+          <Route path="create-skill" element={<CreateSkill />} />
+          <Route path="create-skill/:profileId" element={<CreateSkill />} />
           <Route path="ai-assistant" element={<AIAssistant />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
