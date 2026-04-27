@@ -3,12 +3,19 @@ import { persist } from 'zustand/middleware';
 import type { Company, Contact, Appointment, Application, Communication } from '../types';
 import type { Resume, AiModel } from '../types/ai';
 import { defaultModel } from '../types/ai';
+import type { JobSearchFilters } from '../types/jobSearch';
+import { defaultJobSearchFilters } from '../types/jobSearch';
 
 interface JobStore {
     companies: Company[];
     appointments: Appointment[];
     resumes: Resume[];
     aiSettings: AiModel;
+    activeResumeId: string | null;
+    jobSearchFilters: JobSearchFilters;
+
+    setActiveResumeId: (id: string | null) => void;
+    setJobSearchFilters: (filters: Partial<JobSearchFilters>) => void;
 
     addCompany: (company: Omit<Company, 'id' | 'dateAdded' | 'contacts' | 'interviewPrep' | 'researchStatus'>) => void;
     updateCompany: (id: string, updates: Partial<Company>) => void;
@@ -46,6 +53,14 @@ export const useJobStore = create<JobStore>()(
             appointments: [],
             resumes: [],
             aiSettings: defaultModel,
+            activeResumeId: null,
+            jobSearchFilters: defaultJobSearchFilters,
+
+            setActiveResumeId: (id) => set(() => ({ activeResumeId: id })),
+
+            setJobSearchFilters: (filters) => set((state) => ({
+                jobSearchFilters: { ...state.jobSearchFilters, ...filters },
+            })),
 
             addCompany: (companyData) => set((state) => {
                 const newCompany: Company = {
@@ -318,6 +333,8 @@ export const useJobStore = create<JobStore>()(
                 // Note: aiSettings.provider and aiSettings.model are safe to persist
                 // but NOT any API keys - those are handled by the backend
                 aiSettings: state.aiSettings,
+                activeResumeId: state.activeResumeId,
+                jobSearchFilters: state.jobSearchFilters,
             }),
         }
     )

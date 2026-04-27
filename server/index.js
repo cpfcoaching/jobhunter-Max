@@ -3,7 +3,13 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import { createRequire } from 'module';
+import { spawn } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { encryptData, decryptData, hashData } from './crypto.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import CommonJS modules
 const require = createRequire(import.meta.url);
@@ -729,6 +735,144 @@ ${jobDescription}`;
     } catch (error) {
         console.error('Job match error:', error);
         res.status(500).json({ error: error.message || 'Failed to generate job match' });
+    }
+});
+
+// ============================================
+// JOB SEARCH ENDPOINT (JobSpy integration)
+// ============================================
+
+/**
+ * POST /api/jobs/search
+ * Search jobs using the JobSpy Python library.
+ * Body: { filters: JobSearchFilters, resumeContext?: string }
+ */
+app.post('/api/jobs/search', async (req, res) => {
+    try {
+        const { filters } = req.body;
+
+        if (!filters) {
+            return res.status(400).json({ error: 'filters are required' });
+        }
+
+        const scriptPath = path.join(__dirname, 'jobspy_search.py');
+        const filtersJson = JSON.stringify(filters);
+        // Allow overriding the Python executable (e.g. 'python' on Windows)
+        const pythonExec = process.env.PYTHON_EXECUTABLE || 'python3';
+
+        const jobs = await new Promise((resolve, reject) => {
+            const proc = spawn(pythonExec, [scriptPath, filtersJson], {
+                env: { ...process.env },
+            });
+
+            let stdout = '';
+            let stderr = '';
+
+            proc.stdout.on('data', (chunk) => { stdout += chunk; });
+            proc.stderr.on('data', (chunk) => { stderr += chunk; });
+
+            proc.on('close', (code) => {
+                if (code !== 0) {
+                    console.error('JobSpy stderr:', stderr);
+                    // Try to return a structured error from the script
+                    try {
+                        const parsed = JSON.parse(stdout);
+                        if (parsed.error) {
+                            return reject(new Error(parsed.error));
+                        }
+                    } catch (_) { /* ignore */ }
+                    return reject(new Error(`JobSpy process exited with code ${code}: ${stderr}`));
+                }
+
+                try {
+                    const parsed = JSON.parse(stdout);
+                    // Check if the script returned an error object
+                    if (parsed && parsed.error) {
+                        return reject(new Error(parsed.error));
+                    }
+                    resolve(Array.isArray(parsed) ? parsed : []);
+                } catch (e) {
+                    reject(new Error(`Failed to parse JobSpy output: ${e.message}`));
+                }
+            });
+
+            proc.on('error', (err) => {
+                if (err.code === 'ENOENT') {
+                    reject(new Error(`Python executable '${pythonExec}' not found. Install Python 3.8+ or set the PYTHON_EXECUTABLE environment variable.`));
+                } else {
+                    reject(err);
+                }
+            });
+        });
+
+        res.json({ jobs });
+    } catch (error) {
+        console.error('Job search error:', error);
+        res.status(500).json({ error: error.message || 'Failed to search jobs' });
+    }
+});
+
+// ============================================
+// AI JOB RECOMMENDATION ENDPOINT
+// ============================================
+
+/**
+ * POST /api/ai/recommend-jobs
+ * Use AI to extract job titles, keywords, and suggested filters from a resume.
+ * Body: { resumeContent, provider, model }
+ */
+app.post('/api/ai/recommend-jobs', async (req, res) => {
+    try {
+        const { resumeContent, provider, model } = req.body;
+
+        if (!resumeContent || !provider || !model) {
+            return res.status(400).json({ error: 'resumeContent, provider, and model are required' });
+        }
+
+        const prompt = `You are an expert career advisor. Analyze the following resume and respond ONLY with a JSON object in this exact format:
+{
+  "jobTitles": ["<job title 1>", "<job title 2>", "<job title 3>"],
+  "keywords": ["<keyword 1>", "<keyword 2>", "<keyword 3>"],
+  "suggestedFilters": {
+    "jobTitle": "<best single job title for search>",
+    "location": "<city or region if mentioned, otherwise empty string>",
+    "salaryMin": <number or null>,
+    "salaryMax": <number or null>,
+    "remote": <true or false>
+  }
+}
+
+Rules:
+- jobTitles: 3-5 realistic job titles this person should target
+- keywords: 5-10 important skills/technologies from the resume
+- suggestedFilters.jobTitle: the single best job title to use as the primary search term
+- suggestedFilters.salaryMin/salaryMax: estimate from experience level (null if unclear)
+- suggestedFilters.remote: true only if remote work is mentioned in the resume
+- Do NOT include any explanation, only the JSON object.
+
+Resume:
+${resumeContent}`;
+
+        const result = await callAIProvider(provider, model, prompt);
+
+        let recommendation;
+        try {
+            const cleaned = cleanJsonString(result);
+            recommendation = JSON.parse(cleaned);
+        } catch (e) {
+            console.error('JSON parse error for recommend-jobs:', e);
+            console.log('Raw AI output:', result);
+            recommendation = {
+                jobTitles: [],
+                keywords: [],
+                suggestedFilters: { jobTitle: '' },
+            };
+        }
+
+        res.json(recommendation);
+    } catch (error) {
+        console.error('Recommend jobs error:', error);
+        res.status(500).json({ error: error.message || 'Failed to generate job recommendations' });
     }
 });
 

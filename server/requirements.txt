@@ -1,0 +1,2 @@
+# JobSpy fork from cpfcoaching — used for multi-board job scraping
+git+https://github.com/cpfcoaching/JobSpy.git

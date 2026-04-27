@@ -1,0 +1,63 @@
+name: Weekly JobSpy Sync
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync-jobspy:
+    name: Sync & test JobSpy fork
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install JobSpy from fork
+        run: |
+          pip install --upgrade pip
+          pip install git+https://github.com/cpfcoaching/JobSpy.git
+
+      - name: Freeze installed version to requirements.txt
+        run: |
+          # Try both common package names for the JobSpy fork
+          INSTALLED=$(pip show python-jobspy 2>/dev/null | grep '^Version:' | awk '{print $2}')
+          if [ -z "$INSTALLED" ]; then
+            INSTALLED=$(pip show jobspy 2>/dev/null | grep '^Version:' | awk '{print $2}')
+          fi
+          echo "# Auto-updated by jobspy-sync workflow on $(date -u +%Y-%m-%d)" > server/requirements.txt
+          echo "git+https://github.com/cpfcoaching/JobSpy.git" >> server/requirements.txt
+          if [ -n "$INSTALLED" ]; then
+            echo "# Installed version: ${INSTALLED}" >> server/requirements.txt
+          fi
+
+      - name: Smoke test — import jobspy
+        run: |
+          python3 -c "from jobspy import scrape_jobs; print('JobSpy import OK')"
+
+      - name: Smoke test — run search script (dry-run)
+        run: |
+          python3 server/jobspy_search.py '{"jobTitle":"software engineer","location":"Remote","jobBoards":["indeed"],"resultsWanted":2,"remote":true}' \
+            | python3 -c "import sys, json; data=json.load(sys.stdin); print(f'Returned {len(data)} job(s)')"
+
+      - name: Commit updated requirements.txt (if changed)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet server/requirements.txt; then
+            git add server/requirements.txt
+            git commit -m "chore: update JobSpy reference in requirements.txt [skip ci]"
+            git push
+          else
+            echo "No changes to requirements.txt"
+          fi

@@ -1,3 +1,5 @@
+import type { JobSearchFilters, JobResult, RecommendJobsResponse } from '../types/jobSearch';
+
 // Backend API configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -68,4 +70,49 @@ export async function generateAiResponse(
 
     const data = await response.json();
     return data.response;
+}
+
+/**
+ * Search for jobs using the JobSpy backend integration
+ */
+export async function searchJobs(
+    filters: JobSearchFilters,
+    resumeContext?: string
+): Promise<JobResult[]> {
+    const response = await fetch(`${API_BASE_URL}/api/jobs/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filters, resumeContext }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to search jobs');
+    }
+
+    const data = await response.json();
+    return data.jobs as JobResult[];
+}
+
+/**
+ * Use AI to recommend job titles/filters based on a resume
+ */
+export async function recommendJobsFromResume(
+    resumeContent: string,
+    provider: string,
+    model: string
+): Promise<RecommendJobsResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/ai/recommend-jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeContent, provider, model }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to get job recommendations');
+    }
+
+    const data = await response.json();
+    return data as RecommendJobsResponse;
 }
