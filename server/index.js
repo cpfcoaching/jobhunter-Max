@@ -760,8 +760,10 @@ function normalizeJobSpyApiJob(job, index) {
     const salaryParts = [];
     if (job.min_amount != null) salaryParts.push(`$${Number(job.min_amount).toLocaleString()}`);
     if (job.max_amount != null) salaryParts.push(`$${Number(job.max_amount).toLocaleString()}`);
+    // Build a stable ID from meaningful fields, falling back to index only as last resort
+    const stableId = job.id || job.job_url || [job.title, job.company, job.location].filter(Boolean).join('|') || String(index);
     return {
-        id: String(job.id || job.job_url || index),
+        id: String(stableId),
         title: String(job.title || ''),
         company: String(job.company || ''),
         location: String(job.location || ''),
@@ -908,9 +910,11 @@ function normalizeEverJobsJob(job, index) {
     if (salaryMax != null) salaryParts.push(`$${Number(salaryMax).toLocaleString()}`);
 
     const datePosted = job.postedAt || job.datePosted || job.createdAt || null;
+    // Build a stable ID from meaningful fields, falling back to index only as last resort
+    const stableId = job.id || job.url || job.applyUrl || [job.title, companyName, job.location].filter(Boolean).join('|') || String(index);
 
     return {
-        id: String(job.id || job.url || index),
+        id: String(stableId),
         title: String(job.title || ''),
         company: String(companyName),
         location: String(job.location || ''),
@@ -1123,7 +1127,7 @@ ${resumeContent.slice(0, 3000)}`;
                 score = Math.min(100, Math.max(0, Number(parsed.score) || 0));
                 reasoning = parsed.reasoning || '';
             } catch (e) {
-                console.error(`Score parse error for job "${job.title}":`, e);
+                console.error('AI provider returned unparseable JSON during job scoring at index', scoredJobs.length, ':', e instanceof Error ? e.message : e);
                 score = 0;
                 reasoning = 'Could not parse AI scoring response.';
             }
@@ -1152,7 +1156,7 @@ Guidelines:
                     const coverLetter = await callAIProvider(provider, model, clPrompt);
                     scored.coverLetter = coverLetter.trim();
                 } catch (e) {
-                    console.error(`Cover letter error for job "${job.title}":`, e);
+                    console.error('Cover letter generation error for job at index', scoredJobs.length, e);
                     scored.coverLetter = null;
                 }
             }

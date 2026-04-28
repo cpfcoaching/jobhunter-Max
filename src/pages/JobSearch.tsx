@@ -169,9 +169,12 @@ export const JobSearch: React.FC = () => {
     };
 
     const handleCopyCL = () => {
-        navigator.clipboard.writeText(clText);
-        setClCopied(true);
-        setTimeout(() => setClCopied(false), 2000);
+        navigator.clipboard.writeText(clText).then(() => {
+            setClCopied(true);
+            setTimeout(() => setClCopied(false), 2000);
+        }).catch(() => {
+            setError('Failed to copy to clipboard. Please select and copy the text manually.');
+        });
     };
 
     const handleAddToTracker = (job: JobResult) => {
