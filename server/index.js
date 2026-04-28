@@ -753,8 +753,34 @@ ${jobDescription}`;
 // ============================================
 
 /**
+ * Map a raw job object from the rainmanjam/jobspy-api HTTP response into the
+ * same shape used by the local Python script so the frontend stays uniform.
+ */
+function normalizeJobSpyApiJob(job, index) {
+    const salaryParts = [];
+    if (job.min_amount != null) salaryParts.push(`$${Number(job.min_amount).toLocaleString()}`);
+    if (job.max_amount != null) salaryParts.push(`$${Number(job.max_amount).toLocaleString()}`);
+    return {
+        id: String(job.id || job.job_url || index),
+        title: String(job.title || ''),
+        company: String(job.company || ''),
+        location: String(job.location || ''),
+        salary: salaryParts.length ? salaryParts.join(' - ') : null,
+        url: job.job_url || null,
+        source: String(job.site || ''),
+        datePosted: job.date_posted ? String(job.date_posted) : null,
+        description: job.description ? String(job.description).slice(0, 500) : null,
+    };
+}
+
+/**
  * POST /api/jobs/search
- * Search jobs using the JobSpy Python library.
+ * Search jobs using JobSpy.
+ *
+ * When JOBSPY_API_URL is set the request is proxied to the external
+ * rainmanjam/jobspy-api Docker service.  Otherwise the local Python
+ * script is spawned (existing behaviour).
+ *
  * Body: { filters: JobSearchFilters, resumeContext?: string }
  */
 app.post('/api/jobs/search', async (req, res) => {
@@ -765,6 +791,40 @@ app.post('/api/jobs/search', async (req, res) => {
             return res.status(400).json({ error: 'filters are required' });
         }
 
+        // ── Integration 1: rainmanjam/jobspy-api ──────────────────────────────
+        const jobspyApiUrl = process.env.JOBSPY_API_URL;
+        if (jobspyApiUrl) {
+            const endpoint = `${jobspyApiUrl.replace(/\/$/, '')}/api/v1/jobs/search`;
+            const body = {
+                site_name: filters.jobBoards || ['linkedin', 'indeed'],
+                search_term: filters.jobTitle || '',
+                location: filters.location || '',
+                results_wanted: Number(filters.resultsWanted || 20),
+                is_remote: Boolean(filters.remote),
+                ...(filters.salaryMin != null ? { min_amount: filters.salaryMin } : {}),
+                ...(filters.salaryMax != null ? { max_amount: filters.salaryMax } : {}),
+                ...(filters.company ? { company: filters.company } : {}),
+            };
+
+            const apiRes = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+
+            if (!apiRes.ok) {
+                const errText = await apiRes.text();
+                throw new Error(`jobspy-api returned ${apiRes.status}: ${errText}`);
+            }
+
+            const data = await apiRes.json();
+            // The API returns { jobs: [...] } or a plain array
+            const raw = Array.isArray(data) ? data : (data.jobs || []);
+            const jobs = raw.map((j, i) => normalizeJobSpyApiJob(j, i));
+            return res.json({ jobs });
+        }
+
+        // ── Fallback: local Python script ─────────────────────────────────────
         const scriptPath = path.join(__dirname, 'jobspy_search.py');
         const filtersJson = JSON.stringify(filters);
         // Allow overriding the Python executable (e.g. 'python' on Windows)
@@ -819,6 +879,103 @@ app.post('/api/jobs/search', async (req, res) => {
     } catch (error) {
         console.error('Job search error:', error);
         res.status(500).json({ error: error.message || 'Failed to search jobs' });
+    }
+});
+
+// ============================================
+// EVER-JOBS SEARCH ENDPOINT
+// (Integration 2: ever-jobs/ever-jobs — 160+ sources)
+// ============================================
+
+/**
+ * Map a raw job from the ever-jobs REST API response to the shared JobResult
+ * shape used across the application.
+ *
+ * ever-jobs normalises results across all 160+ sources into a common schema:
+ *   { id, title, description, company: { name }, location, salary, url,
+ *     source, postedAt, isRemote, ... }
+ * We defensively handle both flat and nested shapes.
+ */
+function normalizeEverJobsJob(job, index) {
+    const companyName =
+        (job.company && typeof job.company === 'object' ? job.company.name : job.company) ||
+        job.companyName || '';
+
+    const salaryParts = [];
+    const salaryMin = job.salaryMin ?? job.salary?.min;
+    const salaryMax = job.salaryMax ?? job.salary?.max;
+    if (salaryMin != null) salaryParts.push(`$${Number(salaryMin).toLocaleString()}`);
+    if (salaryMax != null) salaryParts.push(`$${Number(salaryMax).toLocaleString()}`);
+
+    const datePosted = job.postedAt || job.datePosted || job.createdAt || null;
+
+    return {
+        id: String(job.id || job.url || index),
+        title: String(job.title || ''),
+        company: String(companyName),
+        location: String(job.location || ''),
+        salary: salaryParts.length ? salaryParts.join(' - ') : (job.salary && typeof job.salary === 'string' ? job.salary : null),
+        url: job.url || job.applyUrl || null,
+        source: String(job.source || 'ever-jobs'),
+        datePosted: datePosted ? String(datePosted) : null,
+        description: job.description ? String(job.description).slice(0, 500) : null,
+    };
+}
+
+/**
+ * POST /api/jobs/search-ever
+ * Search jobs via a self-hosted ever-jobs NestJS REST API.
+ * Requires EVER_JOBS_API_URL environment variable to be set.
+ *
+ * ever-jobs REST API search endpoint:
+ *   GET /api/jobs?q=<query>&location=<location>&limit=<n>&remote=<bool>
+ * Body: { filters: JobSearchFilters }
+ */
+app.post('/api/jobs/search-ever', async (req, res) => {
+    try {
+        const { filters } = req.body;
+
+        if (!filters) {
+            return res.status(400).json({ error: 'filters are required' });
+        }
+
+        const everJobsUrl = process.env.EVER_JOBS_API_URL;
+        if (!everJobsUrl) {
+            return res.status(503).json({
+                error: 'EVER_JOBS_API_URL is not configured. ' +
+                    'Set this environment variable to the URL of your self-hosted ever-jobs service. ' +
+                    'See https://github.com/ever-jobs/ever-jobs for setup instructions.',
+            });
+        }
+
+        const params = new URLSearchParams({
+            q: filters.jobTitle || '',
+            ...(filters.location ? { location: filters.location } : {}),
+            limit: String(Number(filters.resultsWanted || 20)),
+            ...(filters.remote ? { remote: 'true' } : {}),
+            ...(filters.company ? { company: filters.company } : {}),
+        });
+
+        const endpoint = `${everJobsUrl.replace(/\/$/, '')}/api/jobs?${params.toString()}`;
+
+        const apiRes = await fetch(endpoint, {
+            headers: { 'Accept': 'application/json' },
+        });
+
+        if (!apiRes.ok) {
+            const errText = await apiRes.text();
+            throw new Error(`ever-jobs API returned ${apiRes.status}: ${errText}`);
+        }
+
+        const data = await apiRes.json();
+        // ever-jobs may return { items: [...], total } or a plain array
+        const raw = Array.isArray(data) ? data : (data.items || data.jobs || []);
+        const jobs = raw.map((j, i) => normalizeEverJobsJob(j, i));
+
+        res.json({ jobs });
+    } catch (error) {
+        console.error('ever-jobs search error:', error);
+        res.status(500).json({ error: error.message || 'Failed to search ever-jobs' });
     }
 });
 
@@ -883,6 +1040,170 @@ ${resumeContent}`;
     } catch (error) {
         console.error('Recommend jobs error:', error);
         res.status(500).json({ error: error.message || 'Failed to generate job recommendations' });
+    }
+});
+
+// ============================================
+// FIND-ME-JOB SCORING PIPELINE
+// (Integration 3: MohamedMamdouh18/Find-Me-Job)
+// ============================================
+
+/**
+ * Build a compact job description for the scoring prompt.
+ * We trim the description to keep the prompt within model context limits.
+ */
+function buildJobSnippet(job) {
+    const parts = [
+        `Title: ${job.title || 'Unknown'}`,
+        `Company: ${job.company || 'Unknown'}`,
+        `Location: ${job.location || 'Unknown'}`,
+    ];
+    if (job.salary) parts.push(`Salary: ${job.salary}`);
+    if (job.description) parts.push(`Description:\n${job.description.slice(0, 800)}`);
+    return parts.join('\n');
+}
+
+/**
+ * POST /api/ai/score-jobs
+ * Score each job in the list against the provided resume (Find-Me-Job pipeline).
+ *
+ * Scoring rules (adapted from MohamedMamdouh18/Find-Me-Job):
+ *   - Score 0-100 based on skills match, experience match, and role alignment
+ *   - Experience gaps of 1-2 years receive a minor penalty
+ *   - Gaps of 3+ years result in a score of 0
+ *   - Jobs at or above scoreThreshold receive an AI-generated cover letter
+ *
+ * Body: { jobs, resumeContent, provider, model, scoreThreshold? }
+ */
+app.post('/api/ai/score-jobs', async (req, res) => {
+    try {
+        const { jobs, resumeContent, provider, model, scoreThreshold } = req.body;
+
+        if (!jobs || !Array.isArray(jobs) || jobs.length === 0) {
+            return res.status(400).json({ error: 'jobs array is required and must not be empty' });
+        }
+        if (!resumeContent || !provider || !model) {
+            return res.status(400).json({ error: 'resumeContent, provider, and model are required' });
+        }
+
+        const threshold = scoreThreshold != null
+            ? Number(scoreThreshold)
+            : Number(process.env.AI_SCORE_THRESHOLD || 60);
+
+        const scoredJobs = [];
+
+        for (const job of jobs) {
+            const jobSnippet = buildJobSnippet(job);
+
+            const scorePrompt = `You are an expert career advisor. Score how well this candidate's resume matches the job posting on a scale of 0 to 100.
+
+Scoring rules:
+- Base the score on: required skills overlap, years of experience alignment, role/industry fit
+- Experience gap of 1-2 years below requirement: deduct 10-20 points
+- Experience gap of 3+ years below requirement: score must be 0
+- A perfect match is 100; completely unrelated is 0
+
+Respond ONLY with a JSON object in this exact format (no explanation):
+{
+  "score": <integer 0-100>,
+  "reasoning": "<one sentence summary of why>"
+}
+
+JOB POSTING:
+${jobSnippet}
+
+RESUME:
+${resumeContent.slice(0, 3000)}`;
+
+            let score = 0;
+            let reasoning = '';
+            try {
+                const raw = await callAIProvider(provider, model, scorePrompt);
+                const parsed = JSON.parse(cleanJsonString(raw));
+                score = Math.min(100, Math.max(0, Number(parsed.score) || 0));
+                reasoning = parsed.reasoning || '';
+            } catch (e) {
+                console.error(`Score parse error for job "${job.title}":`, e);
+                score = 0;
+                reasoning = 'Could not parse AI scoring response.';
+            }
+
+            const scored = { ...job, matchScore: score, matchReasoning: reasoning };
+
+            // Generate cover letter for high-scoring matches
+            if (score >= threshold) {
+                const clPrompt = `You are an expert career coach. Write a concise, professional cover letter for the following job application. Tailor it to the job requirements and highlight the candidate's most relevant skills and experience.
+
+JOB POSTING:
+${jobSnippet}
+
+CANDIDATE RESUME:
+${resumeContent.slice(0, 3000)}
+
+Guidelines:
+- 3-4 short paragraphs
+- Opening: express enthusiasm and state the role
+- Middle: highlight 2-3 specific achievements that map to the job's requirements
+- Closing: call to action
+- Professional but engaging tone
+- Do NOT use generic filler phrases`;
+
+                try {
+                    const coverLetter = await callAIProvider(provider, model, clPrompt);
+                    scored.coverLetter = coverLetter.trim();
+                } catch (e) {
+                    console.error(`Cover letter error for job "${job.title}":`, e);
+                    scored.coverLetter = null;
+                }
+            }
+
+            scoredJobs.push(scored);
+        }
+
+        res.json({ scoredJobs });
+    } catch (error) {
+        console.error('Score jobs error:', error);
+        res.status(500).json({ error: error.message || 'Failed to score jobs' });
+    }
+});
+
+/**
+ * POST /api/ai/cover-letter
+ * Generate a cover letter for a single job on demand.
+ * Body: { job, resumeContent, provider, model }
+ */
+app.post('/api/ai/cover-letter', async (req, res) => {
+    try {
+        const { job, resumeContent, provider, model } = req.body;
+
+        if (!job || !resumeContent || !provider || !model) {
+            return res.status(400).json({ error: 'job, resumeContent, provider, and model are required' });
+        }
+
+        const jobSnippet = buildJobSnippet(job);
+
+        const prompt = `You are an expert career coach. Write a concise, professional cover letter for the following job application. Tailor it to the job requirements and highlight the candidate's most relevant skills and experience.
+
+JOB POSTING:
+${jobSnippet}
+
+CANDIDATE RESUME:
+${resumeContent.slice(0, 3000)}
+
+Guidelines:
+- 3-4 short paragraphs
+- Opening: express enthusiasm and state the role
+- Middle: highlight 2-3 specific achievements that map to the job's requirements
+- Closing: call to action
+- Professional but engaging tone
+- Do NOT use generic filler phrases`;
+
+        const coverLetter = await callAIProvider(provider, model, prompt);
+
+        res.json({ coverLetter: coverLetter.trim() });
+    } catch (error) {
+        console.error('Cover letter error:', error);
+        res.status(500).json({ error: error.message || 'Failed to generate cover letter' });
     }
 });
 
