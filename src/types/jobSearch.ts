@@ -1,5 +1,8 @@
 export type JobBoard = 'linkedin' | 'indeed' | 'glassdoor' | 'zip_recruiter';
 
+/** Which search engine powers the job search */
+export type JobSourceEngine = 'jobspy' | 'ever-jobs';
+
 export interface JobSearchFilters {
     jobTitle: string;
     location: string;
@@ -32,6 +35,15 @@ export interface JobResult {
     source: JobBoard | string;
     datePosted: string | null;
     description: string | null;
+    /** 0-100 AI match score (populated by Find-Me-Job scoring pipeline) */
+    matchScore?: number;
+    /** AI-generated cover letter for high-scoring matches */
+    coverLetter?: string;
+}
+
+export interface ScoredJobResult extends JobResult {
+    matchScore: number;
+    coverLetter?: string;
 }
 
 export interface RecommendJobsResponse {
