@@ -22,7 +22,7 @@ export const AddCompanyForm: React.FC<AddCompanyFormProps> = ({ onClose }) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        addCompany(formData);
+        addCompany({ ...formData, applications: [] });
         onClose();
     };
 

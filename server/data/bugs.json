@@ -1,0 +1,18 @@
+[
+  {
+    "id": "b115a23d-8ddf-4173-a090-1c8531bc32d2",
+    "timestamp": "2026-06-27T14:29:20.363Z",
+    "feedback": "The dashboard company list does not sort alphabetically by default.",
+    "expectations": "The list of companies should be sorted alphabetically.",
+    "screenshotUrl": null,
+    "status": "in_progress"
+  },
+  {
+    "id": "27f19c0a-5dfd-43c1-ab83-0fdc4934ef8c",
+    "timestamp": "2026-06-27T14:10:58.207Z",
+    "feedback": "Vite page is blank on load.",
+    "expectations": "Should display the login page or dashboard.",
+    "screenshotUrl": "/uploads/screenshots/bug_screenshot_18a3085e-7d41-4ce2-a898-630c25a2d914.png",
+    "status": "open"
+  }
+]

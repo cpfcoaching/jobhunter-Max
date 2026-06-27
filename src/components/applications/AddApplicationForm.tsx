@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useJobStore } from '../store/useJobStore';
+import { useJobStore } from '../../store/useJobStore';
 import { Briefcase } from 'lucide-react';
-import type { ApplicationStatus } from '../types';
+import type { ApplicationStatus } from '../../types';
 
 interface AddApplicationFormProps {
     companyId: string;

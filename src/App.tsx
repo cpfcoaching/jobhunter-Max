@@ -8,6 +8,8 @@ import { AIAssistant } from './pages/AIAssistant';
 import { Settings } from './pages/Settings';
 import { JobSearch } from './pages/JobSearch';
 import { CreateSkill } from './pages/CreateSkill';
+import { Feedback } from './pages/Feedback';
+import { AdminPortal } from './pages/AdminPortal';
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
           <Route path="create-skill" element={<CreateSkill />} />
           <Route path="create-skill/:profileId" element={<CreateSkill />} />
           <Route path="ai-assistant" element={<AIAssistant />} />
+          <Route path="feedback" element={<Feedback />} />
+          <Route path="admin" element={<AdminPortal />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

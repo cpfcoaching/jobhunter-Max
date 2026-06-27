@@ -6,10 +6,89 @@ import { createRequire } from 'module';
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
+import crypto from 'crypto';
 import { encryptData, decryptData, hashData } from './crypto.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Initialize data files
+const DATA_DIR = path.join(__dirname, 'data');
+const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
+const BUGS_FILE = path.join(DATA_DIR, 'bugs.json');
+const FEATURES_FILE = path.join(DATA_DIR, 'features.json');
+const ERRORS_FILE = path.join(DATA_DIR, 'api_errors.json');
+const SECURITY_FILE = path.join(DATA_DIR, 'security_events.json');
+
+// Ensure directories exist
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+if (!fs.existsSync(SCREENSHOTS_DIR)) {
+    fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+}
+
+// Ensure JSON files exist
+const initJsonFile = (filePath) => {
+    if (!fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, JSON.stringify([], null, 2), 'utf-8');
+    }
+};
+
+initJsonFile(BUGS_FILE);
+initJsonFile(FEATURES_FILE);
+initJsonFile(ERRORS_FILE);
+initJsonFile(SECURITY_FILE);
+
+// Logging helpers
+function logApiError(source, endpoint, error, context = {}) {
+    try {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : '';
+        const rawData = fs.readFileSync(ERRORS_FILE, 'utf-8');
+        const errors = JSON.parse(rawData);
+        
+        const newError = {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            source, // 'client' or 'server'
+            endpoint,
+            errorMessage: errorMsg,
+            stack,
+            context
+        };
+        
+        errors.unshift(newError); // newest first
+        if (errors.length > 1000) errors.pop();
+        
+        fs.writeFileSync(ERRORS_FILE, JSON.stringify(errors, null, 2), 'utf-8');
+    } catch (e) {
+        console.error('Failed to log API error:', e);
+    }
+}
+
+function logSecurityEvent(eventType, description, context = {}) {
+    try {
+        const rawData = fs.readFileSync(SECURITY_FILE, 'utf-8');
+        const events = JSON.parse(rawData);
+        
+        const newEvent = {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            eventType,
+            description,
+            context
+        };
+        
+        events.unshift(newEvent); // newest first
+        if (events.length > 1000) events.pop();
+        
+        fs.writeFileSync(SECURITY_FILE, JSON.stringify(events, null, 2), 'utf-8');
+    } catch (e) {
+        console.error('Failed to log security event:', e);
+    }
+}
 
 // Import CommonJS modules
 const require = createRequire(import.meta.url);
@@ -27,6 +106,7 @@ app.use(cors({
     credentials: true,
 }));
 app.use(express.json({ limit: '50mb' }));
+app.use('/uploads/screenshots', express.static(path.join(__dirname, 'data/screenshots')));
 
 // In-memory store for API keys (in production, use a database)
 // Keys are stored encrypted
@@ -81,8 +161,10 @@ app.post('/api/keys/set', async (req, res) => {
             }
         }
 
+        logSecurityEvent('API_KEY_UPDATE', `API key stored securely for provider: ${provider}`, { provider });
         res.json({ success: true, message: `${provider} API key stored securely` });
     } catch (error) {
+        logApiError('server', '/api/keys/set', error);
         console.error('Error storing API key:', error);
         res.status(500).json({ error: 'Failed to store API key' });
     }
@@ -103,6 +185,7 @@ app.get('/api/keys/check/:provider', (req, res) => {
         const hasKey = apiKeyStore.has(provider);
         res.json({ hasKey, provider });
     } catch (error) {
+        logApiError('server', `/api/keys/check/${req.params.provider}`, error);
         console.error('Error checking API key:', error);
         res.status(500).json({ error: 'Failed to check API key' });
     }
@@ -121,8 +204,10 @@ app.post('/api/keys/delete/:provider', (req, res) => {
         }
 
         apiKeyStore.delete(provider);
+        logSecurityEvent('API_KEY_DELETE', `API key deleted for provider: ${provider}`, { provider });
         res.json({ success: true, message: `${provider} API key deleted` });
     } catch (error) {
+        logApiError('server', `/api/keys/delete/${req.params.provider}`, error);
         console.error('Error deleting API key:', error);
         res.status(500).json({ error: 'Failed to delete API key' });
     }
@@ -182,6 +267,7 @@ app.post('/api/ai/generate', async (req, res) => {
 
         res.json(response);
     } catch (error) {
+        logApiError('server', '/api/ai/generate', error, { provider: req.body?.provider, model: req.body?.model });
         console.error('Error generating response:', error);
         res.status(500).json({ error: 'Failed to generate response' });
     }
@@ -1208,6 +1294,257 @@ Guidelines:
     } catch (error) {
         console.error('Cover letter error:', error);
         res.status(500).json({ error: error.message || 'Failed to generate cover letter' });
+    }
+});
+
+// ============================================
+// FEEDBACK & ADMIN ENDPOINTS
+// ============================================
+
+/**
+ * POST /api/feedback/bug
+ * Submit bug report with screenshot (base64)
+ */
+app.post('/api/feedback/bug', async (req, res) => {
+    try {
+        const { feedback, expectations, screenshot } = req.body;
+        if (!feedback || !expectations) {
+            return res.status(400).json({ error: 'Feedback and expectations are required.' });
+        }
+
+        let screenshotUrl = null;
+        if (screenshot) {
+            // Validate screenshot base64 format (e.g. data:image/png;base64,...)
+            const matches = screenshot.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                const ext = matches[1];
+                const base64Data = matches[2];
+                const filename = `bug_screenshot_${crypto.randomUUID()}.${ext}`;
+                const filepath = path.join(SCREENSHOTS_DIR, filename);
+                
+                fs.writeFileSync(filepath, Buffer.from(base64Data, 'base64'));
+                screenshotUrl = `/uploads/screenshots/${filename}`;
+            }
+        }
+
+        const rawData = fs.readFileSync(BUGS_FILE, 'utf-8');
+        const bugs = JSON.parse(rawData);
+
+        const newBug = {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            feedback,
+            expectations,
+            screenshotUrl,
+            status: 'open' // open, in_progress, resolved
+        };
+
+        bugs.unshift(newBug);
+        fs.writeFileSync(BUGS_FILE, JSON.stringify(bugs, null, 2), 'utf-8');
+
+        res.json({ success: true, bug: newBug });
+    } catch (error) {
+        logApiError('server', '/api/feedback/bug', error);
+        res.status(500).json({ error: 'Failed to submit bug report' });
+    }
+});
+
+/**
+ * POST /api/feedback/feature
+ * Submit feature request
+ */
+app.post('/api/feedback/feature', async (req, res) => {
+    try {
+        const { title, description, category, priority } = req.body;
+        if (!title || !description || !category || !priority) {
+            return res.status(400).json({ error: 'Title, description, category, and priority are required.' });
+        }
+
+        const rawData = fs.readFileSync(FEATURES_FILE, 'utf-8');
+        const features = JSON.parse(rawData);
+
+        const newFeature = {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            title,
+            description,
+            category,
+            priority, // low, medium, high
+            status: 'pending' // pending, planned, in_progress, completed, declined
+        };
+
+        features.unshift(newFeature);
+        fs.writeFileSync(FEATURES_FILE, JSON.stringify(features, null, 2), 'utf-8');
+
+        res.json({ success: true, feature: newFeature });
+    } catch (error) {
+        logApiError('server', '/api/feedback/feature', error);
+        res.status(500).json({ error: 'Failed to submit feature request' });
+    }
+});
+
+/**
+ * POST /api/logs/error
+ * Frontend client error logging
+ */
+app.post('/api/logs/error', async (req, res) => {
+    try {
+        const { endpoint, errorMessage, stack, context } = req.body;
+        logApiError('client', endpoint || 'frontend', errorMessage || 'Unknown Client Error', { stack, ...context });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Failed to log client error:', error);
+        res.status(500).json({ error: 'Failed to log error' });
+    }
+});
+
+/**
+ * GET /api/admin/bugs
+ * Get all bug reports
+ */
+app.get('/api/admin/bugs', async (req, res) => {
+    try {
+        const rawData = fs.readFileSync(BUGS_FILE, 'utf-8');
+        res.json({ bugs: JSON.parse(rawData) });
+    } catch (error) {
+        logApiError('server', '/api/admin/bugs', error);
+        res.status(500).json({ error: 'Failed to retrieve bug reports' });
+    }
+});
+
+/**
+ * PATCH /api/admin/bugs/:id
+ * Update status of a bug report
+ */
+app.patch('/api/admin/bugs/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        if (!status) {
+            return res.status(400).json({ error: 'Status is required' });
+        }
+
+        const rawData = fs.readFileSync(BUGS_FILE, 'utf-8');
+        let bugs = JSON.parse(rawData);
+
+        let updated = false;
+        bugs = bugs.map(bug => {
+            if (bug.id === id) {
+                updated = true;
+                return { ...bug, status };
+            }
+            return bug;
+        });
+
+        if (!updated) {
+            return res.status(404).json({ error: 'Bug report not found' });
+        }
+
+        fs.writeFileSync(BUGS_FILE, JSON.stringify(bugs, null, 2), 'utf-8');
+        res.json({ success: true });
+    } catch (error) {
+        logApiError('server', `/api/admin/bugs/${req.params.id}`, error);
+        res.status(500).json({ error: 'Failed to update bug report' });
+    }
+});
+
+/**
+ * GET /api/admin/features
+ * Get all feature requests
+ */
+app.get('/api/admin/features', async (req, res) => {
+    try {
+        const rawData = fs.readFileSync(FEATURES_FILE, 'utf-8');
+        res.json({ features: JSON.parse(rawData) });
+    } catch (error) {
+        logApiError('server', '/api/admin/features', error);
+        res.status(500).json({ error: 'Failed to retrieve feature requests' });
+    }
+});
+
+/**
+ * PATCH /api/admin/features/:id
+ * Update status of a feature request
+ */
+app.patch('/api/admin/features/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        if (!status) {
+            return res.status(400).json({ error: 'Status is required' });
+        }
+
+        const rawData = fs.readFileSync(FEATURES_FILE, 'utf-8');
+        let features = JSON.parse(rawData);
+
+        let updated = false;
+        features = features.map(feat => {
+            if (feat.id === id) {
+                updated = true;
+                return { ...feat, status };
+            }
+            return feat;
+        });
+
+        if (!updated) {
+            return res.status(404).json({ error: 'Feature request not found' });
+        }
+
+        fs.writeFileSync(FEATURES_FILE, JSON.stringify(features, null, 2), 'utf-8');
+        res.json({ success: true });
+    } catch (error) {
+        logApiError('server', `/api/admin/features/${req.params.id}`, error);
+        res.status(500).json({ error: 'Failed to update feature request' });
+    }
+});
+
+/**
+ * GET /api/admin/logs/errors
+ * Retrieve API error logs
+ */
+app.get('/api/admin/logs/errors', async (req, res) => {
+    try {
+        const rawData = fs.readFileSync(ERRORS_FILE, 'utf-8');
+        res.json({ logs: JSON.parse(rawData) });
+    } catch (error) {
+        logApiError('server', '/api/admin/logs/errors', error);
+        res.status(500).json({ error: 'Failed to retrieve error logs' });
+    }
+});
+
+/**
+ * GET /api/admin/logs/security
+ * Retrieve security event logs
+ */
+app.get('/api/admin/logs/security', async (req, res) => {
+    try {
+        const rawData = fs.readFileSync(SECURITY_FILE, 'utf-8');
+        res.json({ logs: JSON.parse(rawData) });
+    } catch (error) {
+        logApiError('server', '/api/admin/logs/security', error);
+        res.status(500).json({ error: 'Failed to retrieve security logs' });
+    }
+});
+
+/**
+ * POST /api/admin/logs/clear
+ * Clear a specific log file
+ */
+app.post('/api/admin/logs/clear', async (req, res) => {
+    try {
+        const { type } = req.body;
+        if (!['errors', 'security'].includes(type)) {
+            return res.status(400).json({ error: 'Invalid log type' });
+        }
+
+        const fileToClear = type === 'errors' ? ERRORS_FILE : SECURITY_FILE;
+        fs.writeFileSync(fileToClear, JSON.stringify([], null, 2), 'utf-8');
+        
+        logSecurityEvent('LOGS_CLEARED', `Admin cleared the ${type} log file`);
+        res.json({ success: true });
+    } catch (error) {
+        logApiError('server', '/api/admin/logs/clear', error);
+        res.status(500).json({ error: 'Failed to clear logs' });
     }
 });
 

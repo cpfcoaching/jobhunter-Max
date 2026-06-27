@@ -1,0 +1,20 @@
+[
+  {
+    "id": "369f9598-ac24-43f5-bf9e-31608094ba23",
+    "timestamp": "2026-06-27T14:30:15.328Z",
+    "title": "Export reports to CSV",
+    "description": "Enable users to export their company and job application lists to CSV files.",
+    "category": "Companies",
+    "priority": "medium",
+    "status": "planned"
+  },
+  {
+    "id": "60434d97-2da8-497d-b0eb-989883780e16",
+    "timestamp": "2026-06-27T14:10:59.590Z",
+    "title": "Add theme selector",
+    "description": "I would like to have a dark/light mode toggle in settings.",
+    "category": "Settings",
+    "priority": "low",
+    "status": "pending"
+  }
+]

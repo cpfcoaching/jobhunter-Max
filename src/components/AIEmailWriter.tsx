@@ -28,26 +28,10 @@ export const AIEmailWriter: React.FC<AIEmailWriterProps> = ({
     const [isGenerating, setIsGenerating] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    const purposeTemplates = {
-        introduction: 'Write a professional introduction email',
-        'follow-up': 'Write a follow-up email after a previous conversation',
-        'thank-you': 'Write a thank you email after an interview',
-        application: 'Write a job application email',
-        custom: 'Write a professional email',
-    };
 
     const handleGenerateEmail = async () => {
         setIsGenerating(true);
         try {
-            const prompt = customPrompt || purposeTemplates[purpose];
-            const context = `
-Contact: ${contact?.firstName} ${contact?.lastName}
-Company: ${companyName || 'the company'}
-Role: ${contact?.role || 'Hiring Manager'}
-
-${prompt}
-            `.trim();
-
             // Simulate AI generation (replace with actual AI call)
             await new Promise((resolve) => setTimeout(resolve, 2000));
 
