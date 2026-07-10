@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Copy, Check } from 'lucide-react';
 import type { Contact, Company } from '../types';
 
@@ -9,19 +9,13 @@ interface EmailGeneratorProps {
 }
 
 export const EmailGenerator: React.FC<EmailGeneratorProps> = ({ contact, company, onClose }) => {
-    const [subject, setSubject] = useState('');
-    const [body, setBody] = useState('');
-    const [copied, setCopied] = useState(false);
-
-    useEffect(() => {
-        // Default template from requirements
-        setSubject(`Quick question - ${company.name}`);
-        setBody(`Hi ${contact.firstName},
+    const [subject, setSubject] = useState(`Quick question - ${company.name}`);
+    const [body, setBody] = useState(`Hi ${contact.firstName},
 
 I hope you're doing well! I truly value your insights and would love to hear your advice. Given your experience with ${company.name}, could you share any tips or guidance? I’m interested in understanding both the specific roles and the broader picture of the company.
 
 Thanks so much!`);
-    }, [contact, company]);
+    const [copied, setCopied] = useState(false);
 
     const handleCopy = () => {
         const fullText = `Subject: ${subject}\n\n${body}`;
