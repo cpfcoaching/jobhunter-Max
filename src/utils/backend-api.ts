@@ -197,3 +197,27 @@ export async function generateCoverLetter(
     const data = await response.json();
     return data.coverLetter as string;
 }
+
+/**
+ * Optimize a resume for a specific InfoSec role.
+ */
+export async function optimizeResume(
+    resumeContent: string,
+    role: string,
+    provider: string,
+    model: string
+): Promise<string> {
+    const response = await fetch(`${API_BASE_URL}/api/ai/optimize-resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeContent, role, provider, model }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to optimize resume');
+    }
+
+    const data = await response.json();
+    return data.optimizedResume as string;
+}

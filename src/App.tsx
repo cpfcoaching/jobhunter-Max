@@ -10,6 +10,7 @@ import { JobSearch } from './pages/JobSearch';
 import { CreateSkill } from './pages/CreateSkill';
 import { Feedback } from './pages/Feedback';
 import { AdminPortal } from './pages/AdminPortal';
+import { SecurityResume } from './pages/SecurityResume';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           <Route path="ai-assistant" element={<AIAssistant />} />
           <Route path="feedback" element={<Feedback />} />
           <Route path="admin" element={<AdminPortal />} />
+          <Route path="security-resume" element={<SecurityResume />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

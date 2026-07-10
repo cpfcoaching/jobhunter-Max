@@ -834,6 +834,45 @@ ${jobDescription}`;
     }
 });
 
+// AI Resume Optimization Endpoint
+app.post('/api/ai/optimize-resume', async (req, res) => {
+    try {
+        const { resumeContent, role, provider, model } = req.body;
+
+        if (!resumeContent || !role || !provider || !model) {
+            return res.status(400).json({ error: 'Missing required fields: resumeContent, role, provider, and model' });
+        }
+
+        const prompt = `You are an expert resume writer and career coach specializing in Information Security.
+Your task is to optimize and tailor the following base resume for a specific target role: "${role}".
+
+Optimize the resume by:
+1. Tailoring the summary and title to highlight relevant experience for "${role}".
+2. Refining the professional experience bullet points to focus on achievements, tools, and methodologies relevant to "${role}".
+3. Ensuring key security certifications, technical skills, and core competencies matching "${role}" are prominent.
+4. Aligning the tone and vocabulary with industry standards for "${role}".
+
+CRITICAL REQUIREMENTS:
+- Output ONLY the optimized resume text.
+- Do NOT include any introductory or concluding text (e.g., "Here is your optimized resume:").
+- Do NOT use markdown formatting elements. Specifically:
+  - Do NOT use asterisks for bolding (e.g., use "CORE COMPETENCIES" instead of "**CORE COMPETENCIES**").
+  - Do NOT use hashtags for headers (e.g., use "PROFESSIONAL EXPERIENCE" instead of "# PROFESSIONAL EXPERIENCE").
+  - Do NOT use markdown bullet lists (e.g., use standard characters or dashes if needed, but formatting should be clean and readable).
+- Maintain the candidate's original contact details, work history timeline, and educational background.
+
+Base Resume:
+${resumeContent}`;
+
+        const result = await callAIProvider(provider, model, prompt);
+        res.json({ optimizedResume: result });
+    } catch (error) {
+        logApiError('server', '/api/ai/optimize-resume', error, { provider: req.body?.provider, model: req.body?.model });
+        console.error('Optimize resume error:', error);
+        res.status(500).json({ error: error.message || 'Failed to optimize resume' });
+    }
+});
+
 // ============================================
 // JOB SEARCH ENDPOINT (JobSpy integration)
 // ============================================
