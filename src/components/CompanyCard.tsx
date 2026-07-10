@@ -1,6 +1,6 @@
 import React from 'react';
 import { MapPin, Globe, Trash2, ArrowRight } from 'lucide-react';
-import type { Company } from '../types';
+import type { Company, Rating } from '../types';
 import { StarRating } from './StarRating';
 import { useJobStore } from '../store/useJobStore';
 
@@ -34,7 +34,7 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({ company }) => {
                     <div className="flex items-center gap-2" title={`Base Rating: ${company.rating} - Relocation Penalty: ${company.relocationUncertain ? 0.5 : 0}`}>
                         <StarRating
                             rating={company.rating}
-                            onRate={(r) => updateCompany(company.id, { rating: r as any })}
+                            onRate={(r) => updateCompany(company.id, { rating: r as Rating })}
                         />
                         <span className="text-lg font-bold text-yellow-400 min-w-[2rem] text-right">
                             {effectiveRating}

@@ -160,7 +160,7 @@ export const useJobStore = create<JobStore>()(
                                 if (updates.status === 'Contacted') {
                                     // 3 Business Days
                                     updatedContact.lastContactDate = d.toISOString();
-                                    let daysToAdd = 3;
+                                    const daysToAdd = 3;
                                     let count = 0;
                                     while (count < daysToAdd) {
                                         d.setDate(d.getDate() + 1);
@@ -169,7 +169,7 @@ export const useJobStore = create<JobStore>()(
                                     updatedContact.nextFollowUp = d.toISOString();
                                 } else if (updates.status === 'No Response') {
                                     // 7 Business Days logic (simplified)
-                                    let daysToAdd = 7;
+                                    const daysToAdd = 7;
                                     let count = 0;
                                     while (count < daysToAdd) {
                                         d.setDate(d.getDate() + 1);

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { useJobStore } from '../../store/useJobStore';
-import type { ContactStatus } from '../../types';
+import type { ContactChannel, ContactStatus } from '../../types';
 
 interface AddContactFormProps {
     companyId?: string;
@@ -18,7 +18,7 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({ companyId, onClo
         phone: '',
         linkedinProfile: '',
         status: 'Identified' as ContactStatus,
-        channel: undefined as any,
+        channel: '' as ContactChannel | '',
         notes: '',
         selectedCompanyId: companyId || '',
     });
@@ -37,7 +37,7 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({ companyId, onClo
             phone: formData.phone,
             linkedinProfile: formData.linkedinProfile,
             status: formData.status,
-            channel: formData.channel,
+            channel: formData.channel || undefined,
             notes: formData.notes,
             lastContactDate: null,
             nextFollowUp: null,
@@ -162,7 +162,7 @@ export const AddContactForm: React.FC<AddContactFormProps> = ({ companyId, onClo
                             <label className="block text-sm font-medium text-gray-400 mb-1">Contact Channel</label>
                             <select
                                 value={formData.channel || ''}
-                                onChange={(e) => setFormData({ ...formData, channel: e.target.value as any })}
+                                onChange={(e) => setFormData({ ...formData, channel: e.target.value as ContactChannel | '' })}
                                 className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 outline-none"
                             >
                                 <option value="">Not specified</option>
