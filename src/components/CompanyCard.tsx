@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { MapPin, Globe, Trash2, ArrowRight } from 'lucide-react';
 import type { Company, Rating } from '../types';
 import { StarRating } from './StarRating';
@@ -13,6 +14,11 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({ company }) => {
     const { updateCompany, deleteCompany } = useJobStore();
 
     const effectiveRating = company.rating - (company.relocationUncertain ? 0.5 : 0);
+    const handleDelete = () => {
+        if (window.confirm(`Delete ${company.name}? This will remove its contacts, applications, and interview prep.`)) {
+            deleteCompany(company.id);
+        }
+    };
 
     return (
         <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 shadow-lg hover:shadow-xl transition-shadow relative group">
@@ -86,15 +92,18 @@ export const CompanyCard: React.FC<CompanyCardProps> = ({ company }) => {
 
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => deleteCompany(company.id)}
+                        onClick={handleDelete}
                         className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                         title="Delete Company"
                     >
                         <Trash2 size={18} />
                     </button>
-                    <button className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                    <Link
+                        to={`/companies/${company.id}`}
+                        className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                    >
                         Details <ArrowRight size={16} />
-                    </button>
+                    </Link>
                 </div>
             </div>
         </div>

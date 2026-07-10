@@ -1,6 +1,51 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const ADMIN_TOKEN_STORAGE_KEY = 'jobhunter_admin_token';
 
 export type LogContext = Record<string, unknown>;
+
+export function getStoredAdminToken(): string {
+    return sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '';
+}
+
+export function setStoredAdminToken(token: string): void {
+    const trimmed = token.trim();
+    if (trimmed) {
+        sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmed);
+    } else {
+        sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+    }
+}
+
+export function clearStoredAdminToken(): void {
+    sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+}
+
+function getAdminHeaders(): HeadersInit {
+    const token = getStoredAdminToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function getErrorMessage(response: Response, fallback: string): Promise<string> {
+    try {
+        const data = await response.json() as { error?: string };
+        return data.error || fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function getScreenshotFilename(screenshotUrl: string): string {
+    const pathPart = screenshotUrl.startsWith('http')
+        ? new URL(screenshotUrl).pathname
+        : screenshotUrl;
+    const filename = pathPart.split('/').pop();
+
+    if (!filename) {
+        throw new Error('Invalid screenshot URL');
+    }
+
+    return filename;
+}
 
 export interface BugReport {
     id: string;
@@ -110,9 +155,11 @@ export async function reportClientError(
  * Get all bug reports (Admin)
  */
 export async function getBugs(): Promise<BugReport[]> {
-    const response = await fetch(`${API_BASE_URL}/api/admin/bugs`);
+    const response = await fetch(`${API_BASE_URL}/api/admin/bugs`, {
+        headers: getAdminHeaders(),
+    });
     if (!response.ok) {
-        throw new Error('Failed to fetch bug reports');
+        throw new Error(await getErrorMessage(response, 'Failed to fetch bug reports'));
     }
     const data = await response.json();
     return data.bugs as BugReport[];
@@ -124,12 +171,12 @@ export async function getBugs(): Promise<BugReport[]> {
 export async function updateBugStatus(id: string, status: BugReport['status']): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/api/admin/bugs/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ status }),
     });
 
     if (!response.ok) {
-        throw new Error('Failed to update bug status');
+        throw new Error(await getErrorMessage(response, 'Failed to update bug status'));
     }
 }
 
@@ -137,9 +184,11 @@ export async function updateBugStatus(id: string, status: BugReport['status']): 
  * Get all feature requests (Admin)
  */
 export async function getFeatures(): Promise<FeatureRequest[]> {
-    const response = await fetch(`${API_BASE_URL}/api/admin/features`);
+    const response = await fetch(`${API_BASE_URL}/api/admin/features`, {
+        headers: getAdminHeaders(),
+    });
     if (!response.ok) {
-        throw new Error('Failed to fetch feature requests');
+        throw new Error(await getErrorMessage(response, 'Failed to fetch feature requests'));
     }
     const data = await response.json();
     return data.features as FeatureRequest[];
@@ -154,12 +203,12 @@ export async function updateFeatureStatus(
 ): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/api/admin/features/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ status }),
     });
 
     if (!response.ok) {
-        throw new Error('Failed to update feature status');
+        throw new Error(await getErrorMessage(response, 'Failed to update feature status'));
     }
 }
 
@@ -167,9 +216,11 @@ export async function updateFeatureStatus(
  * Get all API error logs (Admin)
  */
 export async function getApiErrors(): Promise<ApiErrorLog[]> {
-    const response = await fetch(`${API_BASE_URL}/api/admin/logs/errors`);
+    const response = await fetch(`${API_BASE_URL}/api/admin/logs/errors`, {
+        headers: getAdminHeaders(),
+    });
     if (!response.ok) {
-        throw new Error('Failed to fetch API error logs');
+        throw new Error(await getErrorMessage(response, 'Failed to fetch API error logs'));
     }
     const data = await response.json();
     return data.logs as ApiErrorLog[];
@@ -179,9 +230,11 @@ export async function getApiErrors(): Promise<ApiErrorLog[]> {
  * Get all security logs (Admin)
  */
 export async function getSecurityLogs(): Promise<SecurityEventLog[]> {
-    const response = await fetch(`${API_BASE_URL}/api/admin/logs/security`);
+    const response = await fetch(`${API_BASE_URL}/api/admin/logs/security`, {
+        headers: getAdminHeaders(),
+    });
     if (!response.ok) {
-        throw new Error('Failed to fetch security logs');
+        throw new Error(await getErrorMessage(response, 'Failed to fetch security logs'));
     }
     const data = await response.json();
     return data.logs as SecurityEventLog[];
@@ -193,11 +246,27 @@ export async function getSecurityLogs(): Promise<SecurityEventLog[]> {
 export async function clearLogs(type: 'errors' | 'security'): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/api/admin/logs/clear`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ type }),
     });
 
     if (!response.ok) {
-        throw new Error(`Failed to clear ${type} logs`);
+        throw new Error(await getErrorMessage(response, `Failed to clear ${type} logs`));
     }
+}
+
+/**
+ * Fetch a bug screenshot with admin authorization and return an object URL for display.
+ */
+export async function fetchAdminScreenshotObjectUrl(screenshotUrl: string): Promise<string> {
+    const filename = getScreenshotFilename(screenshotUrl);
+    const response = await fetch(`${API_BASE_URL}/api/admin/screenshots/${encodeURIComponent(filename)}`, {
+        headers: getAdminHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to fetch screenshot'));
+    }
+
+    return URL.createObjectURL(await response.blob());
 }

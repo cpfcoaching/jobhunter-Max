@@ -133,6 +133,7 @@ Open http://localhost:5173 and go to **Settings**:
 | `NODE_ENV` | Environment mode | `development` or `production` |
 | `FRONTEND_URL` | Frontend URL (CORS) | `http://localhost:5173` |
 | `SESSION_SECRET` | Encryption key (NEVER share!) | `your-random-string-here` |
+| `ADMIN_TOKEN` | Bearer token required for `/api/admin/*` endpoints | long random string |
 | `OPENAI_API_KEY` | OpenAI credentials | `sk-...` |
 | `DEEPSEEK_API_KEY` | DeepSeek credentials | `sk-...` |
 
@@ -147,6 +148,18 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 Copy the output and paste it into `.env` as `SESSION_SECRET`.
+
+#### Generate A Strong ADMIN_TOKEN
+
+```bash
+# On macOS/Linux:
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# On Windows (PowerShell):
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Copy the output and paste it into `server/.env` as `ADMIN_TOKEN`. The Admin Portal asks for this value before it can load bug reports, feature requests, API error logs, or security logs.
 
 ### Frontend Setup Details
 
@@ -165,6 +178,17 @@ npm run build
 # Output will be in the 'dist' folder
 # Upload to your hosting service
 ```
+
+#### Backend Admin Auth Regression Test
+
+Run this before deploying admin or feedback changes:
+
+```bash
+cd server
+npm run test:admin-auth
+```
+
+This verifies `/api/admin/*` and bug screenshot endpoints reject missing/invalid tokens and accept a valid `ADMIN_TOKEN`.
 
 ### Project Structure
 
@@ -441,4 +465,3 @@ After setup, you should have these files:
 ---
 
 **Ready to start?** Run the Quick Start (5 minutes) section above and you'll be up and running!
-

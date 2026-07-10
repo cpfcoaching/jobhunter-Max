@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Initialize data files
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 const BUGS_FILE = path.join(DATA_DIR, 'bugs.json');
 const FEATURES_FILE = path.join(DATA_DIR, 'features.json');
@@ -99,6 +99,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 // Middleware
 app.use(cors({
@@ -106,7 +107,55 @@ app.use(cors({
     credentials: true,
 }));
 app.use(express.json({ limit: '50mb' }));
-app.use('/uploads/screenshots', express.static(path.join(__dirname, 'data/screenshots')));
+
+const getBearerToken = (req) => {
+    const authHeader = req.get('authorization') || '';
+    const [scheme, token] = authHeader.split(' ');
+    return scheme?.toLowerCase() === 'bearer' ? token : null;
+};
+
+const isValidAdminToken = (token) => {
+    if (!ADMIN_TOKEN || !token) return false;
+
+    const expected = Buffer.from(ADMIN_TOKEN);
+    const received = Buffer.from(token);
+
+    if (expected.length !== received.length) return false;
+    return crypto.timingSafeEqual(expected, received);
+};
+
+const requireAdminToken = (req, res, next) => {
+    if (!ADMIN_TOKEN) {
+        logSecurityEvent('ADMIN_AUTH_MISSING', 'Admin endpoint blocked because ADMIN_TOKEN is not configured', {
+            path: req.path,
+            method: req.method,
+        });
+        return res.status(503).json({
+            error: 'Admin access is not configured. Set ADMIN_TOKEN on the backend.',
+        });
+    }
+
+    const token = getBearerToken(req);
+    if (!token) {
+        logSecurityEvent('ADMIN_AUTH_MISSING_TOKEN', 'Admin endpoint rejected a request without a bearer token', {
+            path: req.path,
+            method: req.method,
+            ip: req.ip,
+        });
+        return res.status(401).json({ error: 'Admin authorization token is required.' });
+    }
+
+    if (!isValidAdminToken(token)) {
+        logSecurityEvent('ADMIN_AUTH_INVALID_TOKEN', 'Admin endpoint rejected an invalid bearer token', {
+            path: req.path,
+            method: req.method,
+            ip: req.ip,
+        });
+        return res.status(403).json({ error: 'Invalid admin authorization token.' });
+    }
+
+    next();
+};
 
 // In-memory store for API keys (in production, use a database)
 // Keys are stored encrypted
@@ -1340,6 +1389,8 @@ Guidelines:
 // FEEDBACK & ADMIN ENDPOINTS
 // ============================================
 
+app.use('/api/admin', requireAdminToken);
+
 /**
  * POST /api/feedback/bug
  * Submit bug report with screenshot (base64)
@@ -1362,7 +1413,7 @@ app.post('/api/feedback/bug', async (req, res) => {
                 const filepath = path.join(SCREENSHOTS_DIR, filename);
                 
                 fs.writeFileSync(filepath, Buffer.from(base64Data, 'base64'));
-                screenshotUrl = `/uploads/screenshots/${filename}`;
+                screenshotUrl = `/api/admin/screenshots/${filename}`;
             }
         }
 
@@ -1434,6 +1485,31 @@ app.post('/api/logs/error', async (req, res) => {
     } catch (error) {
         console.error('Failed to log client error:', error);
         res.status(500).json({ error: 'Failed to log error' });
+    }
+});
+
+/**
+ * GET /api/admin/screenshots/:filename
+ * Retrieve a bug screenshot for authorized admins.
+ */
+app.get('/api/admin/screenshots/:filename', async (req, res) => {
+    try {
+        const { filename } = req.params;
+        const safeFilename = path.basename(filename);
+
+        if (safeFilename !== filename || !/^bug_screenshot_[a-f0-9-]+\.(png|jpg|jpeg|gif|webp)$/i.test(safeFilename)) {
+            return res.status(400).json({ error: 'Invalid screenshot filename' });
+        }
+
+        const filepath = path.join(SCREENSHOTS_DIR, safeFilename);
+        if (!fs.existsSync(filepath)) {
+            return res.status(404).json({ error: 'Screenshot not found' });
+        }
+
+        res.sendFile(filepath);
+    } catch (error) {
+        logApiError('server', `/api/admin/screenshots/${req.params.filename}`, error);
+        res.status(500).json({ error: 'Failed to retrieve screenshot' });
     }
 });
 
@@ -1598,7 +1674,11 @@ app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });
 });
 
-app.listen(PORT, () => {
-    console.log(`🔒 Secure API server running on http://localhost:${PORT}`);
-    console.log('IMPORTANT: Keep your .env file secret and never commit it to version control');
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+    app.listen(PORT, () => {
+        console.log(`🔒 Secure API server running on http://localhost:${PORT}`);
+        console.log('IMPORTANT: Keep your .env file secret and never commit it to version control');
+    });
+}
+
+export { app };

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     getBugs, getFeatures, getApiErrors, getSecurityLogs,
-    updateBugStatus, updateFeatureStatus, clearLogs
+    updateBugStatus, updateFeatureStatus, clearLogs,
+    clearStoredAdminToken, fetchAdminScreenshotObjectUrl, getStoredAdminToken, setStoredAdminToken
 } from '../utils/feedback-api';
 import type { BugReport, FeatureRequest, ApiErrorLog, SecurityEventLog } from '../utils/feedback-api';
 import {
@@ -20,6 +21,9 @@ export const AdminPortal: React.FC = () => {
     const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
     const [isLoading, setIsLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [adminTokenInput, setAdminTokenInput] = useState(getStoredAdminToken());
+    const [adminToken, setAdminToken] = useState(getStoredAdminToken());
+    const [adminAccessMessage, setAdminAccessMessage] = useState<string | null>(null);
 
     // Data lists
     const [bugs, setBugs] = useState<BugReport[]>([]);
@@ -36,10 +40,17 @@ export const AdminPortal: React.FC = () => {
 
     // Modal state for screenshot
     const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
+    const [screenshotError, setScreenshotError] = useState<string | null>(null);
 
     // Load data
     const loadData = useCallback(async () => {
+        if (!adminToken) {
+            setAdminAccessMessage('Enter the admin token to load submissions and operational logs.');
+            return;
+        }
+
         setIsLoading(true);
+        setAdminAccessMessage(null);
         try {
             if (activeTab === 'submissions') {
                 const [bList, fList] = await Promise.all([getBugs(), getFeatures()]);
@@ -54,10 +65,11 @@ export const AdminPortal: React.FC = () => {
             }
         } catch (error) {
             console.error('Failed to load admin data:', error);
+            setAdminAccessMessage(error instanceof Error ? error.message : 'Failed to load admin data.');
         } finally {
             setIsLoading(false);
         }
-    }, [activeTab]);
+    }, [activeTab, adminToken]);
 
     useEffect(() => {
         // Synchronize the visible admin tab with backend records.
@@ -107,6 +119,19 @@ export const AdminPortal: React.FC = () => {
         }
     };
 
+    const handleSaveAdminToken = () => {
+        setStoredAdminToken(adminTokenInput);
+        setAdminToken(adminTokenInput.trim());
+        setAdminAccessMessage(adminTokenInput.trim() ? 'Admin token saved for this browser.' : 'Admin token cleared.');
+    };
+
+    const handleClearAdminToken = () => {
+        clearStoredAdminToken();
+        setAdminToken('');
+        setAdminTokenInput('');
+        setAdminAccessMessage('Admin token cleared.');
+    };
+
     // Filter submissions list
     const getFilteredSubmissions = () => {
         const list: SubmissionRow[] = [];
@@ -131,7 +156,30 @@ export const AdminPortal: React.FC = () => {
         return list.sort((a, b) => new Date(b.data.timestamp).getTime() - new Date(a.data.timestamp).getTime());
     };
 
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const handleViewScreenshot = async (screenshotUrl: string) => {
+        if (!adminToken) {
+            setAdminAccessMessage('Enter the admin token before viewing screenshots.');
+            return;
+        }
+
+        setScreenshotError(null);
+        try {
+            const objectUrl = await fetchAdminScreenshotObjectUrl(screenshotUrl);
+            setSelectedScreenshot((previousUrl) => {
+                if (previousUrl) URL.revokeObjectURL(previousUrl);
+                return objectUrl;
+            });
+        } catch (error) {
+            setScreenshotError(error instanceof Error ? error.message : 'Failed to load screenshot.');
+        }
+    };
+
+    const closeScreenshot = () => {
+        setSelectedScreenshot((previousUrl) => {
+            if (previousUrl) URL.revokeObjectURL(previousUrl);
+            return null;
+        });
+    };
 
     return (
         <div className="space-y-6">
@@ -148,13 +196,48 @@ export const AdminPortal: React.FC = () => {
 
                 <button
                     onClick={loadData}
-                    disabled={isLoading}
+                    disabled={isLoading || !adminToken}
                     className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-all border border-gray-700 disabled:opacity-50 text-sm font-medium self-start md:self-auto shadow-md"
                 >
                     <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
                     Refresh
                 </button>
             </div>
+
+            <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-4 flex flex-col lg:flex-row lg:items-end gap-3">
+                <div className="flex-1">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                        Admin Token
+                    </label>
+                    <input
+                        type="password"
+                        value={adminTokenInput}
+                        onChange={(e) => setAdminTokenInput(e.target.value)}
+                        placeholder="Paste ADMIN_TOKEN from the backend environment"
+                        className="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-1 focus:ring-purple-500 outline-none"
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleSaveAdminToken}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-semibold transition-colors"
+                    >
+                        Save Token
+                    </button>
+                    <button
+                        onClick={handleClearAdminToken}
+                        className="px-4 py-2 bg-gray-900 hover:bg-gray-700 text-gray-300 rounded-lg text-sm font-semibold transition-colors"
+                    >
+                        Clear
+                    </button>
+                </div>
+            </div>
+
+            {adminAccessMessage && (
+                <div className="bg-yellow-900/20 border border-yellow-700/60 text-yellow-200 rounded-xl p-4 text-sm">
+                    {adminAccessMessage}
+                </div>
+            )}
 
             {/* Tabs Selector */}
             <div className="flex border-b border-gray-800">
@@ -314,7 +397,11 @@ export const AdminPortal: React.FC = () => {
                                                     {data.screenshotUrl && (
                                                         <div className="flex items-center gap-2">
                                                             <button
-                                                                onClick={() => setSelectedScreenshot(`${API_BASE_URL}${data.screenshotUrl}`)}
+                                                                onClick={() => {
+                                                                    if (data.screenshotUrl) {
+                                                                        void handleViewScreenshot(data.screenshotUrl);
+                                                                    }
+                                                                }}
                                                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-gray-700 border border-gray-700 text-purple-400 hover:text-purple-300 rounded-lg text-xs font-semibold transition-colors"
                                                             >
                                                                 <Image size={14} />
@@ -567,11 +654,17 @@ export const AdminPortal: React.FC = () => {
                 </div>
             )}
 
+            {screenshotError && (
+                <div className="bg-red-900/20 border border-red-700/60 text-red-200 rounded-xl p-4 text-sm">
+                    {screenshotError}
+                </div>
+            )}
+
             {/* Screenshot Viewer Modal */}
             {selectedScreenshot && (
                 <div
                     className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-fadeIn"
-                    onClick={() => setSelectedScreenshot(null)}
+                    onClick={closeScreenshot}
                 >
                     <div
                         className="relative bg-gray-900 border border-gray-700 max-w-4xl max-h-[85vh] rounded-2xl overflow-hidden p-2 flex flex-col"
@@ -585,7 +678,7 @@ export const AdminPortal: React.FC = () => {
                         <div className="flex justify-between items-center mt-3 px-3">
                             <span className="text-xs text-gray-400">User Bug Screenshot</span>
                             <button
-                                onClick={() => setSelectedScreenshot(null)}
+                                onClick={closeScreenshot}
                                 className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-xs font-semibold transition-colors"
                             >
                                 Close

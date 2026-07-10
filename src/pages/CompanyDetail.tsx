@@ -35,9 +35,11 @@ export const CompanyDetail: React.FC = () => {
                 </button>
                 <h1 className="text-3xl font-bold text-white flex items-center gap-3">
                     {company.name}
-                    <span className="text-lg font-normal text-gray-400 bg-gray-800 px-3 py-0.5 rounded-full border border-gray-700">
-                        {company.industry}
-                    </span>
+                    {company.industry && (
+                        <span className="text-lg font-normal text-gray-400 bg-gray-800 px-3 py-0.5 rounded-full border border-gray-700">
+                            {company.industry}
+                        </span>
+                    )}
                 </h1>
             </div>
 

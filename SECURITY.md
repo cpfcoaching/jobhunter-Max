@@ -189,6 +189,8 @@ Frontend displays AI response
 - [ ] Update all dependencies: `npm audit fix`
 - [ ] Run security audit: `npm audit`
 - [ ] Set strong `SESSION_SECRET` (min 32 chars)
+- [ ] Set strong `ADMIN_TOKEN` for Admin Portal and `/api/admin/*` endpoints
+- [ ] Verify bug screenshots require admin authorization before viewing
 - [ ] Configure CORS with specific origins
 - [ ] Enable HTTPS/TLS certificates
 - [ ] Set `NODE_ENV=production`
@@ -215,6 +217,7 @@ Frontend displays AI response
 - [ ] Schedule regular security audits
 - [ ] Keep dependencies updated
 - [ ] Review and rotate SESSION_SECRET periodically
+- [ ] Review and rotate `ADMIN_TOKEN` periodically and after staff changes
 
 ---
 

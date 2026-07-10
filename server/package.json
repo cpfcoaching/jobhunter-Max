@@ -5,6 +5,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
+    "test": "node --test",
+    "test:admin-auth": "node --test tests/admin-auth.test.js",
     "setup:python": "pip install -r requirements.txt"
   },
   "dependencies": {
