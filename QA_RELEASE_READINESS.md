@@ -14,6 +14,7 @@ This tracker turns the current product state into a concrete QA and sales-readin
 ## Evidence Collected
 
 - Authenticated live Chrome QA of `https://cpfcoaching.us/dashboard`.
+- Authenticated live route QA of `https://cpfcoaching.us` on 2026-07-10; findings recorded in `audits/live-production-route-qa-2026-07-10.md`.
 - Live screenshots saved in `audits/`.
 - Source review of dashboard, company, contact, appointment, feedback, admin, AI settings, and backend endpoints.
 - Admin endpoint hardening added: `/api/admin/*` now requires backend `ADMIN_TOKEN` and the Admin Portal sends it from session storage.
@@ -25,7 +26,7 @@ This tracker turns the current product state into a concrete QA and sales-readin
 
 | Area | Why It Matters For Sale | Current Evidence | Status | Next Action |
 | --- | --- | --- | --- | --- |
-| First-run dashboard | Trial users decide quickly whether the product is usable | Live dashboard inspected; empty workflow issue confirmed and fixed locally | Needs re-test after deploy | Deploy and verify zero-data state |
+| First-run dashboard | Trial users decide quickly whether the product is usable | Production still shows Add Contact/Book Appointment at zero companies; fixed locally | Needs deploy | Deploy and verify zero-data state |
 | Company tracking | Core CRM foundation for the product | Source reviewed; local empty state exists; card Details link fixed; delete now confirms | Needs browser QA | Add/detail/delete company in browser |
 | Contact tracking | Required for outreach and appointments | Live Add Contact modal inspected | Needs functional QA | Verify contact creation after adding company |
 | Appointment booking | Converts networking activity into scheduled action | Live Book Appointment modal inspected | Needs functional QA | Verify booking after company/contact exist |
@@ -34,7 +35,7 @@ This tracker turns the current product state into a concrete QA and sales-readin
 | AI Assistant | Differentiating feature and sales hook | Source route exists | Not verified | Verify provider setup, errors, and output UX |
 | Security Resume | High-value resume optimization workflow | Source route exists and active dev file open | Not verified | QA import/edit/export/error states |
 | Job Scraper / Job Search | Lead-generation value proposition | Server JobSpy integration exists | Not verified | Verify install requirements and live search path |
-| Billing / subscription | Required for revenue capture | Live nav has Subscription route; local repo does not show matching route | Gap | Align repo, deployed app, and payment docs |
+| Billing / subscription | Required for revenue capture | Production `/billing` renders after hard reload, but local repo does not register the route | Release blocker | Identify deployed source, align billing route, and QA checkout/entitlements |
 | Admin console | Required to monitor launch issues | Backend `/api/admin/*` and screenshots now require `ADMIN_TOKEN`; Admin Portal has token entry | Needs deploy QA | Configure production token and verify 401/403/200 paths |
 | Settings / API keys | Required for AI features and trust | Secure backend docs exist | Needs functional QA | Verify key save/test/delete flows |
 
@@ -47,6 +48,7 @@ This tracker turns the current product state into a concrete QA and sales-readin
 
 2. Align local source, deployed app, and docs.
    - Live production navigation includes routes not present in local `src/App.tsx`, including billing/subscription-oriented items.
+   - Live QA on 2026-07-10 found normal sidebar navigation can update the URL while leaving stale or blank main content until hard reload.
    - Promotion should not start until the source of truth is clear.
 
 3. Add smoke tests for critical user journeys.
