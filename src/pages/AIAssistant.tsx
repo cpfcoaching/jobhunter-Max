@@ -5,6 +5,10 @@ import { generateResumeReview, generateJobMatch } from '../utils/ai';
 import type { ResumeReviewResponse, JobMatchResponse } from '../types/ai';
 import { uploadResumeFile, isValidFileType, isValidFileSize, removeFileExtension } from '../utils/fileUpload';
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+    return error instanceof Error ? error.message : fallback;
+};
+
 export const AIAssistant: React.FC = () => {
     const { resumes, aiSettings, addResume, deleteResume } = useJobStore();
     const [showAddResume, setShowAddResume] = useState(false);
@@ -33,9 +37,9 @@ export const AIAssistant: React.FC = () => {
         try {
             const review = await generateResumeReview(resume.content, aiSettings);
             setResumeReview(review);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Resume review error:', err);
-            setError(err.message || 'Failed to generate resume review. Please check your AI provider settings.');
+            setError(getErrorMessage(err, 'Failed to generate resume review. Please check your AI provider settings.'));
         } finally {
             setIsAnalyzing(false);
         }
@@ -54,9 +58,9 @@ export const AIAssistant: React.FC = () => {
         try {
             const match = await generateJobMatch(resume.content, jobDescription, aiSettings);
             setJobMatch(match);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Job match error:', err);
-            setError(err.message || 'Failed to generate job match. Please check your AI provider settings.');
+            setError(getErrorMessage(err, 'Failed to generate job match. Please check your AI provider settings.'));
         } finally {
             setIsAnalyzing(false);
         }

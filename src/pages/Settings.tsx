@@ -1,10 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useJobStore } from '../store/useJobStore';
 import { Settings as SettingsIcon, Brain, Mail, Linkedin, CheckCircle, XCircle, Download, Lock } from 'lucide-react';
 import { fetchOllamaModels, checkIfOllamaModelIsRunning, keepOllamaModelAlive } from '../utils/ai';
 import { storeApiKey, checkApiKey, deleteApiKey } from '../utils/backend-api';
 import type { AiProvider } from '../types/ai';
 import { ModelManagement } from '../components/ModelManagement';
+
+type ApiKeyProvider = Exclude<AiProvider, 'ollama'>;
+
+const DEFAULT_MODELS: Record<AiProvider, string> = {
+    ollama: 'llama3.2',
+    openai: 'gpt-4o-mini',
+    deepseek: 'deepseek-chat',
+    gemini: 'gemini-flash-latest',
+    claude: 'claude-3-haiku-20240307',
+    cohere: 'command-light',
+};
 
 export const Settings: React.FC = () => {
     const { aiSettings, updateAiSettings } = useJobStore();
@@ -45,45 +56,7 @@ export const Settings: React.FC = () => {
         profileUrl: '',
     });
 
-    // Handle provider changes, model updates, and auto-save AI settings
-    useEffect(() => {
-        const defaultModels: Record<AiProvider, string> = {
-            'ollama': 'llama3.2',
-            'openai': 'gpt-4o-mini',
-            'deepseek': 'deepseek-chat',
-            'gemini': 'gemini-flash-latest',
-            'claude': 'claude-3-haiku-20240307',
-            'cohere': 'command-light'
-        };
-
-        // Set default model for the selected provider
-        setSelectedModel(defaultModels[selectedProvider]);
-
-        // Load Ollama models if provider is Ollama
-        if (selectedProvider === 'ollama') {
-            loadOllamaModels();
-        }
-
-        // Auto-save AI settings
-        if (selectedProvider && selectedModel) {
-            updateAiSettings({
-                provider: selectedProvider,
-                model: selectedModel,
-            });
-
-            // Check Ollama model status if Ollama is selected
-            if (selectedProvider === 'ollama') {
-                checkModelStatus();
-            }
-        }
-    }, [selectedProvider, selectedModel, updateAiSettings]);
-
-    // Check API key status on component mount
-    useEffect(() => {
-        checkApiKeyStatus();
-    }, []);
-
-    const checkApiKeyStatus = async () => {
+    const checkApiKeyStatus = useCallback(async () => {
         try {
             const [openaiConfigured, deepseekConfigured, geminiConfigured, claudeConfigured, cohereConfigured] = await Promise.all([
                 checkApiKey('openai'),
@@ -100,9 +73,70 @@ export const Settings: React.FC = () => {
         } catch (error) {
             console.error('Failed to check API key status:', error);
         }
+    }, []);
+
+    const loadOllamaModels = useCallback(async () => {
+        setIsLoadingModels(true);
+        try {
+            const models = await fetchOllamaModels();
+            setOllamaModels(models);
+
+            // Auto-select first model if none selected
+            if (models.length > 0 && !selectedModel) {
+                setSelectedModel(models[0]);
+            }
+        } catch (error) {
+            console.error('Failed to load Ollama models:', error);
+        } finally {
+            setIsLoadingModels(false);
+        }
+    }, [selectedModel]);
+
+    const checkModelStatus = useCallback(async () => {
+        if (!selectedModel) return;
+
+        const status = await checkIfOllamaModelIsRunning(selectedModel);
+        setModelStatus(status);
+
+        if (status.isRunning && status.runningModelName) {
+            await keepOllamaModelAlive(status.runningModelName);
+        }
+    }, [selectedModel]);
+
+    // Handle provider/model updates and auto-save AI settings.
+    useEffect(() => {
+        if (selectedProvider === 'ollama') {
+            // Synchronize model options from the local Ollama service.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            void loadOllamaModels();
+        }
+
+        if (selectedModel) {
+            updateAiSettings({
+                provider: selectedProvider,
+                model: selectedModel,
+            });
+
+            if (selectedProvider === 'ollama') {
+                void checkModelStatus();
+            }
+        }
+    }, [checkModelStatus, loadOllamaModels, selectedProvider, selectedModel, updateAiSettings]);
+
+    // Check API key status on component mount.
+    useEffect(() => {
+        // Synchronize configured key indicators from the backend.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        void checkApiKeyStatus();
+    }, [checkApiKeyStatus]);
+
+    const handleProviderChange = (provider: AiProvider) => {
+        setSelectedProvider(provider);
+        setSelectedModel(DEFAULT_MODELS[provider]);
+        setModelStatus({ isRunning: false });
     };
 
-    const handleSaveApiKey = async (provider: 'openai' | 'deepseek' | 'gemini' | 'claude' | 'cohere') => {
+    const handleSaveApiKey = async (provider: ApiKeyProvider) => {
         const apiKey = provider === 'openai' ? openaiApiKey
             : provider === 'deepseek' ? deepseekApiKey
                 : provider === 'gemini' ? geminiApiKey
@@ -157,7 +191,7 @@ export const Settings: React.FC = () => {
         }
     };
 
-    const handleDeleteApiKey = async (provider: 'openai' | 'deepseek' | 'gemini' | 'claude' | 'cohere') => {
+    const handleDeleteApiKey = async (provider: ApiKeyProvider) => {
         const providerName = provider === 'openai' ? 'OpenAI'
             : provider === 'deepseek' ? 'DeepSeek'
                 : provider === 'gemini' ? 'Google Gemini'
@@ -191,34 +225,6 @@ export const Settings: React.FC = () => {
                 type: 'error',
                 text: `Failed to delete API key: ${error instanceof Error ? error.message : 'Unknown error'}`,
             });
-        }
-    };
-
-    const loadOllamaModels = async () => {
-        setIsLoadingModels(true);
-        try {
-            const models = await fetchOllamaModels();
-            setOllamaModels(models);
-
-            // Auto-select first model if none selected
-            if (models.length > 0 && !selectedModel) {
-                setSelectedModel(models[0]);
-            }
-        } catch (error) {
-            console.error('Failed to load Ollama models:', error);
-        } finally {
-            setIsLoadingModels(false);
-        }
-    };
-
-    const checkModelStatus = async () => {
-        if (!selectedModel) return;
-
-        const status = await checkIfOllamaModelIsRunning(selectedModel);
-        setModelStatus(status);
-
-        if (status.isRunning && status.runningModelName) {
-            await keepOllamaModelAlive(status.runningModelName);
         }
     };
 
@@ -280,7 +286,7 @@ export const Settings: React.FC = () => {
                             </label>
                             <select
                                 value={selectedProvider}
-                                onChange={(e) => setSelectedProvider(e.target.value as AiProvider)}
+                                onChange={(e) => handleProviderChange(e.target.value as AiProvider)}
                                 className="w-full md:w-64 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500 outline-none"
                             >
                                 <option value="ollama">Ollama (Local)</option>

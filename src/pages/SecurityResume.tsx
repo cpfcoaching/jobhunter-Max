@@ -76,9 +76,9 @@ export const SecurityResume: React.FC = () => {
             // Cleanup any markdown headers or bold indicators to ensure clean plain text
             const cleanedResume = stripMarkdown(optimized);
             setOptimizedResume(cleanedResume);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Failed to optimize resume:', err);
-            setError(err.message || 'Failed to generate targeted resume. Please check your AI provider configuration.');
+            setError(err instanceof Error ? err.message : 'Failed to generate targeted resume. Please check your AI provider configuration.');
         } finally {
             setIsOptimizing(false);
         }

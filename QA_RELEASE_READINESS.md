@@ -7,9 +7,9 @@ This tracker turns the current product state into a concrete QA and sales-readin
 ## Current Readiness Summary
 
 - Status: Not ready for broad paid promotion yet.
-- Reason: Core job-search workflows exist, but automated coverage is missing, several live workflows need authenticated browser QA, and first-run onboarding needs polish before prospects evaluate the product.
+- Reason: Core job-search workflows exist, but automated coverage is missing, several live workflows need authenticated browser QA, and production/source alignment still needs confirmation before prospects evaluate the product.
 - Highest-confidence fix completed in this pass: Dashboard first-run flow now directs users to add a company before contact or appointment workflows.
-- Static verification: TypeScript app check passes; ESLint still fails on pre-existing issues listed below.
+- Static verification: TypeScript app check passes; ESLint source check passes.
 
 ## Evidence Collected
 
@@ -57,10 +57,9 @@ This tracker turns the current product state into a concrete QA and sales-readin
 6. Add production monitoring notes.
    - Document where errors, feedback, usage events, and payment events are reviewed.
 
-7. Clear the ESLint release gate.
-   - Current failing areas include `EmailGenerator`, `ModelManagement`, `InterviewPrepModule`, `ResearchModule`, `AIAssistant`, `AdminPortal`, `SecurityResume`, `Settings`, `utils/ai`, and `utils/feedback-api`.
-   - Common issue types: `no-explicit-any`, unused error variables, hook dependency/ordering issues, and synchronous state updates inside effects.
-   - Dashboard, company card, contact form, and follow-up scheduling issues touched in this pass now type-check cleanly.
+7. Keep the frontend static gate green.
+   - TypeScript and ESLint now pass through the local compiler/linter APIs.
+   - Continue running these gates before each promotion-focused release.
 
 ## Documentation Updates Needed
 
@@ -82,7 +81,7 @@ npm run build
 Equivalent checks run in this session:
 
 - TypeScript compiler API against `tsconfig.app.json`: passed.
-- ESLint API against `src/**/*.{ts,tsx}`: failed because of existing lint debt outside the dashboard fix.
+- ESLint API against `src/**/*.{ts,tsx}`: passed.
 
 Run backend checks when Node and Python dependencies are installed:
 

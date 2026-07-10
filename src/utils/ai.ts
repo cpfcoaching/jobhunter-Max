@@ -1,4 +1,18 @@
-import type { AiModel } from '../types/ai';
+import type { AiModel, JobMatchResponse, OllamaListResponse, ResumeReviewResponse } from '../types/ai';
+
+interface OllamaProcessResponse {
+    models?: Array<{ name: string }>;
+}
+
+interface OllamaPullProgress {
+    total?: number;
+    completed?: number;
+    status?: string;
+}
+
+const isOllamaPullProgress = (value: unknown): value is OllamaPullProgress => {
+    return typeof value === 'object' && value !== null;
+};
 
 // Check if Ollama model is running
 export async function checkIfOllamaModelIsRunning(modelName: string): Promise<{
@@ -14,9 +28,9 @@ export async function checkIfOllamaModelIsRunning(modelName: string): Promise<{
                 error: 'No model is currently running. Please start Ollama first.',
             };
         }
-        const data = await response.json();
+        const data = await response.json() as OllamaProcessResponse;
         if (data.models && data.models.length > 0) {
-            const runningModel = data.models.find((m: any) => m.name === modelName);
+            const runningModel = data.models.find((m) => m.name === modelName);
             if (runningModel) {
                 return {
                     isRunning: true,
@@ -28,7 +42,7 @@ export async function checkIfOllamaModelIsRunning(modelName: string): Promise<{
             isRunning: false,
             error: 'Model is not currently running.',
         };
-    } catch (error) {
+    } catch {
         return {
             isRunning: false,
             error: 'Failed to connect to Ollama. Make sure it is running.',
@@ -43,8 +57,8 @@ export async function fetchOllamaModels(): Promise<string[]> {
         if (!response.ok) {
             throw new Error('Failed to fetch Ollama models');
         }
-        const data = await response.json();
-        return data.models.map((model: any) => model.name);
+        const data = await response.json() as OllamaListResponse;
+        return data.models.map((model) => model.name);
     } catch (error) {
         console.error('Error fetching Ollama models:', error);
         return [];
@@ -75,7 +89,7 @@ export async function keepOllamaModelAlive(modelName: string): Promise<void> {
 export async function generateResumeReview(
     resumeContent: string,
     aiModel: AiModel
-): Promise<any> {
+): Promise<ResumeReviewResponse> {
     try {
         // Use backend API which supports all providers
         const response = await fetch('http://localhost:3001/api/ai/resume-review', {
@@ -91,11 +105,11 @@ export async function generateResumeReview(
         });
 
         if (!response.ok) {
-            const error = await response.json();
+            const error = await response.json() as { error?: string };
             throw new Error(error.error || 'Failed to generate resume review');
         }
 
-        const data = await response.json();
+        const data = await response.json() as { review: ResumeReviewResponse };
         return data.review;
     } catch (error) {
         console.error('Error generating resume review:', error);
@@ -108,7 +122,7 @@ export async function generateJobMatch(
     resumeContent: string,
     jobDescription: string,
     aiModel: AiModel
-): Promise<any> {
+): Promise<JobMatchResponse> {
     try {
         // Use backend API which supports all providers
         const response = await fetch('http://localhost:3001/api/ai/job-match', {
@@ -125,11 +139,11 @@ export async function generateJobMatch(
         });
 
         if (!response.ok) {
-            const error = await response.json();
+            const error = await response.json() as { error?: string };
             throw new Error(error.error || 'Failed to generate job match');
         }
 
-        const data = await response.json();
+        const data = await response.json() as { match: JobMatchResponse };
         return data.match;
     } catch (error) {
         console.error('Error generating job match:', error);
@@ -146,8 +160,8 @@ export async function listInstalledModels(): Promise<string[]> {
         if (!response.ok) {
             throw new Error('Failed to fetch installed models');
         }
-        const data = await response.json();
-        return data.models.map((model: any) => model.name.split(':')[0]);
+        const data = await response.json() as OllamaListResponse;
+        return data.models.map((model) => model.name.split(':')[0]);
     } catch (error) {
         console.error('Error listing installed models:', error);
         return [];
@@ -194,7 +208,8 @@ export async function downloadOllamaModel(
             for (const line of lines) {
                 if (line.trim()) {
                     try {
-                        const data = JSON.parse(line);
+                        const data: unknown = JSON.parse(line);
+                        if (!isOllamaPullProgress(data)) continue;
                         if (data.total && data.completed) {
                             const progress = (data.completed / data.total) * 100;
                             onProgress?.(Math.round(progress));
@@ -202,7 +217,7 @@ export async function downloadOllamaModel(
                         if (data.status === 'success') {
                             return true;
                         }
-                    } catch (e) {
+                    } catch {
                         // Ignore JSON parse errors
                     }
                 }
@@ -241,7 +256,7 @@ export async function checkOllamaStatus(): Promise<boolean> {
     try {
         const response = await fetch('http://localhost:11434/api/tags');
         return response.ok;
-    } catch (error) {
+    } catch {
         return false;
     }
 }

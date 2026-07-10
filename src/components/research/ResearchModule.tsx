@@ -10,8 +10,9 @@ interface ResearchModuleProps {
 export const ResearchModule: React.FC<ResearchModuleProps> = ({ company }) => {
     const { updateCompany } = useJobStore();
     const { interviewPrep } = company;
+    type ResearchField = 'investorRelationsReviewed' | 'headlinesReviewed';
 
-    const toggleCheck = (field: 'investorRelationsReviewed' | 'headlinesReviewed') => {
+    const toggleCheck = (field: ResearchField) => {
         updateCompany(company.id, {
             interviewPrep: {
                 ...interviewPrep,
@@ -20,7 +21,12 @@ export const ResearchModule: React.FC<ResearchModuleProps> = ({ company }) => {
         });
     };
 
-    const researchItems = [
+    const researchItems: Array<{
+        id: ResearchField;
+        label: string;
+        checked: boolean;
+        description: string;
+    }> = [
         {
             id: 'investorRelationsReviewed',
             label: 'Review Investor Relations / About Us Page',
@@ -45,7 +51,7 @@ export const ResearchModule: React.FC<ResearchModuleProps> = ({ company }) => {
                     {researchItems.map((item) => (
                         <div
                             key={item.id}
-                            onClick={() => toggleCheck(item.id as any)}
+                            onClick={() => toggleCheck(item.id)}
                             className="flex items-start gap-4 p-4 bg-gray-900/50 border border-gray-700 rounded-lg cursor-pointer hover:border-blue-500/50 transition-colors"
                         >
                             <div className="mt-1">

@@ -1,5 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+export type LogContext = Record<string, unknown>;
+
 export interface BugReport {
     id: string;
     timestamp: string;
@@ -26,7 +28,7 @@ export interface ApiErrorLog {
     endpoint: string;
     errorMessage: string;
     stack: string;
-    context: any;
+    context: LogContext;
 }
 
 export interface SecurityEventLog {
@@ -34,7 +36,7 @@ export interface SecurityEventLog {
     timestamp: string;
     eventType: string;
     description: string;
-    context: any;
+    context: LogContext;
 }
 
 /**
@@ -91,7 +93,7 @@ export async function reportClientError(
     endpoint: string,
     errorMessage: string,
     stack?: string,
-    context?: any
+    context?: LogContext
 ): Promise<void> {
     try {
         await fetch(`${API_BASE_URL}/api/logs/error`, {

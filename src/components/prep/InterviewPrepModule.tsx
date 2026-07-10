@@ -9,6 +9,8 @@ interface InterviewPrepModuleProps {
 export const InterviewPrepModule: React.FC<InterviewPrepModuleProps> = ({ company }) => {
     const { updateCompany } = useJobStore();
     const { interviewPrep } = company;
+    type TiaraField = keyof typeof interviewPrep.tiara;
+    type CommonQuestionField = keyof typeof interviewPrep.commonQuestionsAnswers;
 
     const updateTiara = (field: keyof typeof interviewPrep.tiara, value: string) => {
         updateCompany(company.id, {
@@ -53,18 +55,18 @@ export const InterviewPrepModule: React.FC<InterviewPrepModuleProps> = ({ compan
                 <p className="text-gray-400 mb-6">Ask insightful questions to show expertise and interest.</p>
 
                 <div className="space-y-6">
-                    {[
+                    {([
                         { key: 'trends', label: 'Trends', placeholder: 'What trends are impacting the industry right now?' },
                         { key: 'insights', label: 'Insights', placeholder: 'What surprises you most about working here?' },
                         { key: 'advice', label: 'Advice', placeholder: 'What advice would you give someone in my position?' },
                         { key: 'resources', label: 'Resources', placeholder: 'What resources/blogs do you recommend I follow?' },
                         { key: 'assignments', label: 'Assignments', placeholder: 'What projects are critical for the team right now?' },
-                    ].map((item) => (
+                    ] satisfies Array<{ key: TiaraField; label: string; placeholder: string }>).map((item) => (
                         <div key={item.key}>
                             <label className="block text-sm font-medium text-blue-400 mb-1 uppercase tracking-wider">{item.label}</label>
                             <textarea
-                                value={(interviewPrep.tiara as any)[item.key]}
-                                onChange={(e) => updateTiara(item.key as any, e.target.value)}
+                                value={interviewPrep.tiara[item.key]}
+                                onChange={(e) => updateTiara(item.key, e.target.value)}
                                 placeholder={`Draft your ${item.label} question: "${item.placeholder}"`}
                                 className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none h-24 text-sm"
                             />
@@ -79,17 +81,17 @@ export const InterviewPrepModule: React.FC<InterviewPrepModuleProps> = ({ compan
                 <p className="text-gray-400 mb-6">Be ready for these common questions.</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {[
+                    {([
                         { key: 'tellMeAboutYourself', label: 'Tell me about yourself' },
                         { key: 'whyUs', label: `Why ${company.name}?` },
                         { key: 'whyRole', label: 'Why this role?' },
                         { key: 'whyIndustry', label: 'Why this industry?' },
-                    ].map((item) => (
+                    ] satisfies Array<{ key: CommonQuestionField; label: string }>).map((item) => (
                         <div key={item.key}>
                             <label className="block text-sm font-medium text-gray-300 mb-1">{item.label}</label>
                             <textarea
-                                value={(interviewPrep.commonQuestionsAnswers as any)[item.key]}
-                                onChange={(e) => updateQuestion(item.key as any, e.target.value)}
+                                value={interviewPrep.commonQuestionsAnswers[item.key]}
+                                onChange={(e) => updateQuestion(item.key, e.target.value)}
                                 className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none h-32 text-sm"
                             />
                         </div>

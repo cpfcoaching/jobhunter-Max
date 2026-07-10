@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Download, Trash2, CheckCircle, Loader, AlertCircle, Star } from 'lucide-react';
 import {
     listInstalledModels,
@@ -92,11 +92,7 @@ export const ModelManagement: React.FC = () => {
     const [downloadingModels, setDownloadingModels] = useState<Map<string, number>>(new Map());
     const [ollamaRunning, setOllamaRunning] = useState(false);
 
-    useEffect(() => {
-        loadInstalledModels();
-    }, []);
-
-    const loadInstalledModels = async () => {
+    const loadInstalledModels = useCallback(async () => {
         const running = await checkOllamaStatus();
         setOllamaRunning(running);
 
@@ -104,13 +100,19 @@ export const ModelManagement: React.FC = () => {
             const models = await listInstalledModels();
             setInstalledModels(models);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        // Synchronize the model list from the local Ollama service on mount.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        void loadInstalledModels();
+    }, [loadInstalledModels]);
 
     const handleDownload = async (modelName: string) => {
-        setDownloadingModels(new Map(downloadingModels.set(modelName, 0)));
+        setDownloadingModels((prev) => new Map(prev).set(modelName, 0));
 
         const success = await downloadOllamaModel(modelName, (progress) => {
-            setDownloadingModels(new Map(downloadingModels.set(modelName, progress)));
+            setDownloadingModels((prev) => new Map(prev).set(modelName, progress));
         });
 
         if (success) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     getBugs, getFeatures, getApiErrors, getSecurityLogs,
     updateBugStatus, updateFeatureStatus, clearLogs
@@ -9,8 +9,15 @@ import {
     ChevronDown, ChevronUp, AlertTriangle, Bug, Sparkles, Image
 } from 'lucide-react';
 
+type AdminTab = 'submissions' | 'api_errors' | 'security';
+type SubmissionType = 'all' | 'bug' | 'feature';
+type SubmissionStatus = BugReport['status'] | FeatureRequest['status'] | 'all';
+type SubmissionRow =
+    | { type: 'bug'; data: BugReport }
+    | { type: 'feature'; data: FeatureRequest };
+
 export const AdminPortal: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'submissions' | 'api_errors' | 'security'>('submissions');
+    const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
     const [isLoading, setIsLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -21,8 +28,8 @@ export const AdminPortal: React.FC = () => {
     const [securityLogs, setSecurityLogs] = useState<SecurityEventLog[]>([]);
 
     // Submissions filters
-    const [subType, setSubType] = useState<'all' | 'bug' | 'feature'>('all');
-    const [subStatus, setSubStatus] = useState<string>('all');
+    const [subType, setSubType] = useState<SubmissionType>('all');
+    const [subStatus, setSubStatus] = useState<SubmissionStatus>('all');
 
     // Expanded rows (for logs stack trace)
     const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -31,7 +38,7 @@ export const AdminPortal: React.FC = () => {
     const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
 
     // Load data
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
             if (activeTab === 'submissions') {
@@ -50,18 +57,20 @@ export const AdminPortal: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [activeTab]);
 
     useEffect(() => {
-        loadData();
-    }, [activeTab]);
+        // Synchronize the visible admin tab with backend records.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        void loadData();
+    }, [loadData]);
 
     const handleBugStatusUpdate = async (id: string, newStatus: BugReport['status']) => {
         setActionLoading(id);
         try {
             await updateBugStatus(id, newStatus);
             setBugs(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
-        } catch (err) {
+        } catch {
             alert('Failed to update bug status');
         } finally {
             setActionLoading(null);
@@ -73,7 +82,7 @@ export const AdminPortal: React.FC = () => {
         try {
             await updateFeatureStatus(id, newStatus);
             setFeatures(prev => prev.map(f => f.id === id ? { ...f, status: newStatus } : f));
-        } catch (err) {
+        } catch {
             alert('Failed to update feature status');
         } finally {
             setActionLoading(null);
@@ -93,14 +102,14 @@ export const AdminPortal: React.FC = () => {
                 setSecurityLogs([]);
             }
             alert('Logs cleared successfully');
-        } catch (err) {
+        } catch {
             alert('Failed to clear logs');
         }
     };
 
     // Filter submissions list
     const getFilteredSubmissions = () => {
-        const list: Array<{ type: 'bug' | 'feature'; data: any }> = [];
+        const list: SubmissionRow[] = [];
 
         if (subType === 'all' || subType === 'bug') {
             bugs.forEach(bug => {
@@ -199,7 +208,7 @@ export const AdminPortal: React.FC = () => {
                             <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Type:</span>
                             <select
                                 value={subType}
-                                onChange={(e) => { setSubType(e.target.value as any); setSubStatus('all'); }}
+                                onChange={(e) => { setSubType(e.target.value as SubmissionType); setSubStatus('all'); }}
                                 className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-1 focus:ring-purple-500 outline-none"
                             >
                                 <option value="all">All Submissions</option>
@@ -212,7 +221,7 @@ export const AdminPortal: React.FC = () => {
                             <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Status:</span>
                             <select
                                 value={subStatus}
-                                onChange={(e) => setSubStatus(e.target.value)}
+                                onChange={(e) => setSubStatus(e.target.value as SubmissionStatus)}
                                 className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-1 focus:ring-purple-500 outline-none"
                             >
                                 <option value="all">All Statuses</option>
@@ -336,7 +345,7 @@ export const AdminPortal: React.FC = () => {
                                                     <select
                                                         value={data.status}
                                                         disabled={actionLoading === data.id}
-                                                        onChange={(e) => handleBugStatusUpdate(data.id, e.target.value as any)}
+                                                        onChange={(e) => handleBugStatusUpdate(data.id, e.target.value as BugReport['status'])}
                                                         className={`w-full bg-gray-900 border rounded-lg px-3 py-1.5 text-sm outline-none font-medium transition-all ${
                                                             data.status === 'resolved'
                                                                 ? 'border-green-500/50 text-green-400'
@@ -353,7 +362,7 @@ export const AdminPortal: React.FC = () => {
                                                     <select
                                                         value={data.status}
                                                         disabled={actionLoading === data.id}
-                                                        onChange={(e) => handleFeatureStatusUpdate(data.id, e.target.value as any)}
+                                                        onChange={(e) => handleFeatureStatusUpdate(data.id, e.target.value as FeatureRequest['status'])}
                                                         className={`w-full bg-gray-900 border rounded-lg px-3 py-1.5 text-sm outline-none font-medium transition-all ${
                                                             data.status === 'completed'
                                                                 ? 'border-green-500/50 text-green-400'
