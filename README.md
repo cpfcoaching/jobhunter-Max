@@ -1,3 +1,5 @@
+
+
 # 🎯 JobHunter Max
 
 > **The Ultimate Job Search Companion** - Combining manual tracking precision with AI-powered intelligence
@@ -29,7 +31,7 @@ See [Security & Setup](#security--setup) section below for configuration details
 **Company Management**
 - Track unlimited companies with detailed information
 - Industry, location, website, and custom notes
-- Rating system (0-4 stars) for prioritization
+- Rating system (0-3 stars) for prioritization
 - Research status tracking (Pending, In Progress, Completed)
 - LinkedIn connection status
 
