@@ -14,7 +14,7 @@
   "dependencies": {
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
-    "react": "^19.2.0",
+    "react": "^19.2.5",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.14.2",
     "tailwind-merge": "^3.4.0",
@@ -23,7 +23,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.6.0",
-    "@types/react": "^19.2.7",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.24",
