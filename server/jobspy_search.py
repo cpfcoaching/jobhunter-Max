@@ -10,9 +10,21 @@ Outputs a JSON array of job results to stdout.
 
 import sys
 import json
+import math
 
 # Maximum number of characters to include in a job description snippet
 MAX_DESCRIPTION_LENGTH = 500
+
+
+def format_salary_amount(value):
+    if value is None:
+        return None
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    try:
+        return f"${int(value):,}"
+    except (TypeError, ValueError, OverflowError):
+        return None
 
 
 def main():
@@ -63,10 +75,12 @@ def main():
     results = []
     for _, row in jobs_df.iterrows():
         salary_parts = []
-        if row.get("min_amount") is not None:
-            salary_parts.append(f"${int(row['min_amount']):,}")
-        if row.get("max_amount") is not None:
-            salary_parts.append(f"${int(row['max_amount']):,}")
+        min_salary = format_salary_amount(row.get("min_amount"))
+        if min_salary is not None:
+            salary_parts.append(min_salary)
+        max_salary = format_salary_amount(row.get("max_amount"))
+        if max_salary is not None:
+            salary_parts.append(max_salary)
         salary = " - ".join(salary_parts) if salary_parts else None
 
         date_posted = None
